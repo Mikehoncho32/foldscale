@@ -1,25 +1,48 @@
 import RadixCore
 import SwiftUI
 
-/// The always-present footer: current selection total on the left, volume space on
-/// the right, including the APFS purgeable figure that explains why Radix's free
-/// number can differ from Finder's (handoff §4, rule 6 · §5.11).
+/// The always-present footer: a stats line (selection / totals on the left, volume
+/// space on the right, incl. the APFS purgeable figure — §4 rule 6 / §5.11) and an
+/// actions line. "Move to Trash" is one click away but danger-tinted (rule 6).
 struct FooterView: View {
     let store: ScanStore
+    let bridge: OutlineBridge
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(leftText)
-            Spacer()
-            if let volume = store.volume {
-                Text(volumeText(volume))
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                Text(leftText)
+                Spacer()
+                if let volume = store.volume {
+                    Text(volumeText(volume))
+                }
             }
+            HStack(spacing: 8) {
+                Spacer()
+                Button {
+                    bridge.quickLook()
+                } label: {
+                    Label("Quick Look", systemImage: "eye")
+                }
+                Button {
+                    FileActions.reveal(store.urls(for: store.selection))
+                } label: {
+                    Label("Reveal in Finder", systemImage: "arrow.up.forward.app")
+                }
+                Button {
+                    store.isConfirmingTrash = true
+                } label: {
+                    Label("Move to Trash", systemImage: "trash")
+                }
+                .tint(.red)
+            }
+            .disabled(store.selection.isEmpty)
         }
         .font(.callout)
         .foregroundStyle(.secondary)
         .lineLimit(1)
         .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.vertical, 7)
     }
 
     private var leftText: String {

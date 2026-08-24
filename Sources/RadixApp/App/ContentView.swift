@@ -7,12 +7,13 @@ import SwiftUI
 /// area shows a live count while the background scan runs (handoff §4, rule 8).
 struct ContentView: View {
     @State private var store = ScanStore()
+    @State private var bridge = OutlineBridge()
 
     var body: some View {
         VStack(spacing: 0) {
             content
             Divider()
-            FooterView(store: store)
+            FooterView(store: store, bridge: bridge)
         }
         .frame(minWidth: 860, minHeight: 560)
         .navigationTitle(store.rootURL?.lastPathComponent ?? "Radix")
@@ -29,11 +30,25 @@ struct ContentView: View {
                 store.openFolder(URL(fileURLWithPath: path))
             }
         }
+        .sheet(
+            isPresented: Binding(
+                get: { store.isConfirmingTrash }, set: { store.isConfirmingTrash = $0 })
+        ) {
+            TrashConfirmView(store: store)
+        }
+        .sheet(
+            isPresented: Binding(
+                get: { store.infoNode != nil }, set: { if !$0 { store.infoNode = nil } })
+        ) {
+            if let node = store.infoNode {
+                GetInfoView(store: store, node: node)
+            }
+        }
     }
 
     @ViewBuilder private var content: some View {
-        if let tree = store.tree {
-            FileOutlineView(store: store, generation: store.generation)
+        if store.tree != nil {
+            FileOutlineView(store: store, generation: store.generation, bridge: bridge)
         } else {
             placeholder
         }
