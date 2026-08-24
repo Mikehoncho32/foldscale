@@ -36,7 +36,7 @@ public struct ScanProgress: Sendable {
 /// An event from the progressive (streaming) scan API.
 public enum ScanEvent: Sendable {
     case progress(ScanProgress)
-    case completed(FileTree)
+    case completed(FileTree, deniedDirectories: Int)
 }
 
 /// Errors a scan can fail with.

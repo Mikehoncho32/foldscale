@@ -16,6 +16,9 @@ final class DirectoryWalker<Builder: TreeBuilder> {
     private var rootDevice: Int64 = 0
     private var nodesScanned = 0
     private var bytesScanned: Int64 = 0
+    /// Directories skipped because they couldn't be opened (permission denied) —
+    /// the signal that Full Disk Access would give more complete results (§5.7).
+    private(set) var deniedDirectories = 0
 
     private static var progressInterval: Int { 5000 }
     private static var dot: CChar { 46 }  // ASCII '.'
@@ -62,7 +65,10 @@ final class DirectoryWalker<Builder: TreeBuilder> {
     }
 
     private func scanChildren(atPath path: String) throws {
-        guard let dirp = opendir(path) else { return }
+        guard let dirp = opendir(path) else {
+            if errno == EACCES || errno == EPERM { deniedDirectories += 1 }
+            return
+        }
         let dirFD = dirfd(dirp)
         var pending: [PendingSubdir] = []
         while let entryPtr = readdir(dirp) {
