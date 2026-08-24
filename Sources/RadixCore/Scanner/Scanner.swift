@@ -57,13 +57,16 @@ public enum Scanner {
         AsyncThrowingStream { continuation in
             let task = Task.detached(priority: .userInitiated) {
                 do {
-                    let tree = try scan(
-                        at: url,
+                    let walker = DirectoryWalker(
+                        builder: FileTreeBuilder(),
                         options: options,
                         isCancelled: { Task.isCancelled },
                         onProgress: { continuation.yield(.progress($0)) }
                     )
-                    continuation.yield(.completed(tree))
+                    try walker.run(rootPath: url.path)
+                    continuation.yield(
+                        .completed(
+                            walker.builder.finish(), deniedDirectories: walker.deniedDirectories))
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)

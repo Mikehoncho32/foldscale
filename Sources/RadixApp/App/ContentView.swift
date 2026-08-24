@@ -11,6 +11,10 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if store.shouldSuggestFDA {
+                FDABanner(store: store)
+                Divider()
+            }
             content
             Divider()
             FooterView(store: store, bridge: bridge)
@@ -24,6 +28,7 @@ struct ContentView: View {
             return true
         }
         .onAppear {
+            store.refreshFDA()
             // Dev/CI hook: auto-scan a folder from the environment so the app can be
             // driven headlessly (screenshots, smoke tests) without the open panel.
             if let path = ProcessInfo.processInfo.environment["RADIX_SCAN_PATH"] {
@@ -43,6 +48,12 @@ struct ContentView: View {
             if let node = store.infoNode {
                 GetInfoView(store: store, node: node)
             }
+        }
+        .sheet(
+            isPresented: Binding(
+                get: { store.isShowingFDAOnboarding }, set: { store.isShowingFDAOnboarding = $0 })
+        ) {
+            FDAOnboardingView(store: store)
         }
     }
 

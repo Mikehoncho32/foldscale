@@ -37,6 +37,20 @@ final class GuardrailTests: XCTestCase {
         }
     }
 
+    /// Safety rule (handoff §2.2): the scanner must be metadata-only. Reading a
+    /// dataless cloud file's *contents* would materialize it (trigger a download),
+    /// so content-reading APIs must never appear in the scanner.
+    func testScannerNeverReadsFileContents() throws {
+        let scannerDir = Self.repoRoot.appendingPathComponent("Sources/RadixCore/Scanner")
+        let banned = ["FileHandle", "Data(contentsOf", "String(contentsOf", "fopen(", "fread("]
+        for file in try Self.swiftFiles(under: scannerDir) {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            for token in banned where text.contains(token) {
+                XCTFail("\(file.lastPathComponent) uses '\(token)'; the scanner must be metadata-only.")
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     /// This file lives at <root>/Tests/RadixCoreTests/GuardrailTests.swift.

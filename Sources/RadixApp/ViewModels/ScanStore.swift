@@ -25,6 +25,21 @@ final class ScanStore {
     /// (a value-type `FileTree` has no identity to diff on).
     private(set) var generation = 0
 
+    /// Directories the most recent scan couldn't read (permission denied).
+    private(set) var deniedDirectories = 0
+
+    /// Whether the app currently has Full Disk Access.
+    private(set) var fdaGranted = FullDiskAccess.isGranted()
+
+    /// Whether the FDA onboarding sheet is presented.
+    var isShowingFDAOnboarding = false
+
+    /// Whether the user dismissed the FDA suggestion banner for this scan.
+    var fdaBannerDismissed = false
+
+    /// Absolute paths the user excluded this session (they survive rescans).
+    private(set) var sessionExclusions: Set<String> = []
+
     /// Node ids currently selected in the outline (kept in sync by the coordinator).
     var selection: Set<FileTree.NodeID> = []
 
@@ -64,19 +79,28 @@ final class ScanStore {
         tree = nil
         selection = []
         progress = nil
+        deniedDirectories = 0
+        fdaBannerDismissed = false
         phase = .scanning
         volume = VolumeStats.forVolume(containing: url)
 
+        let exclusions = ScanExclusions(
+            skippedPaths: ScanExclusions.default.skippedPaths.union(sessionExclusions),
+            skippedNames: ScanExclusions.default.skippedNames)
+        let options = ScanOptions(exclusions: exclusions)
         scanTask = Task { [weak self] in
             do {
-                for try await event in Scanner.scanStream(at: url) {
+                let stream = Scanner.scanStream(at: url, options: options)
+                for try await event in stream {
                     switch event {
                     case .progress(let sample):
                         self?.progress = sample
-                    case .completed(let tree):
+                    case .completed(let tree, let denied):
                         self?.tree = tree
                         self?.generation += 1
+                        self?.deniedDirectories = denied
                         self?.phase = .done
+                        self?.refreshFDA()
                         if ProcessInfo.processInfo.environment["RADIX_LOG"] != nil {
                             let root = tree.rootID
                             let line =
@@ -159,4 +183,29 @@ final class ScanStore {
 
     /// Total allocated bytes that trashing the current selection would reclaim.
     var selectionReclaimBytes: Int64 { selectedTotalBytes }
+
+    // MARK: - Full Disk Access
+
+    /// Re-checks Full Disk Access (cheap; call after granting or on demand).
+    func refreshFDA() { fdaGranted = FullDiskAccess.isGranted() }
+
+    /// Whether to nudge the user toward Full Disk Access: the scan hit unreadable
+    /// directories, access isn't granted, and the hint hasn't been dismissed.
+    var shouldSuggestFDA: Bool { deniedDirectories > 0 && !fdaGranted && !fdaBannerDismissed }
+
+    // MARK: - Exclusions
+
+    /// Excludes nodes from the scan: hides them now (with re-totaling) and remembers
+    /// their paths so a rescan skips them too (§4 context menu).
+    func exclude(_ nodes: Set<FileTree.NodeID>) {
+        guard let tree else { return }
+        var updated = tree
+        for node in nodes {
+            if let url = url(for: node) { sessionExclusions.insert(url.path) }
+            updated.remove(node)
+        }
+        self.tree = updated
+        generation += 1
+        selection = []
+    }
 }

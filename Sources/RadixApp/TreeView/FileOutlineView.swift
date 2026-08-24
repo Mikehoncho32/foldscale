@@ -208,6 +208,7 @@ struct FileOutlineView: NSViewRepresentable {
             add(to: menu, "Reveal in Finder", #selector(menuReveal))
             add(to: menu, "Get Info", #selector(menuGetInfo))
             add(to: menu, "Copy Path", #selector(menuCopyPath))
+            add(to: menu, "Exclude from Scan", #selector(menuExclude))
             menu.addItem(.separator())
             let trashTitle =
                 store.selectionHasProtected
@@ -226,6 +227,7 @@ struct FileOutlineView: NSViewRepresentable {
         @objc private func menuCopyPath() { FileActions.copyPaths(store.urls(for: store.selection)) }
         @objc private func menuGetInfo() { store.infoNode = store.selection.first }
         @objc private func menuTrash() { store.isConfirmingTrash = true }
+        @objc private func menuExclude() { store.exclude(store.selection) }
 
         // MARK: Helpers
 
