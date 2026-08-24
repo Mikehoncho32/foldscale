@@ -18,6 +18,10 @@ let package = Package(
         .target(
             name: "RadixCore"
         ),
+        .executableTarget(
+            name: "radix-bench",
+            dependencies: ["RadixCore"]
+        ),
         .testTarget(
             name: "RadixCoreTests",
             dependencies: ["RadixCore"]

@@ -12,6 +12,11 @@ opt_in_rules:
 
 disabled_rules:
   - todo
+  # We intentionally use the non-failable String(decoding:as:) for filename bytes,
+  # which decodes invalid UTF-8 lossily rather than returning nil.
+  - optional_data_string_conversion
+  # swift-format owns trailing-comma style (it adds them in multi-line literals).
+  - trailing_comma
 
 line_length:
   warning: 120
