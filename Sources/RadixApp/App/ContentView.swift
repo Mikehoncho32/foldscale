@@ -8,20 +8,30 @@ import SwiftUI
 struct ContentView: View {
     @State private var store = ScanStore()
     @State private var bridge = OutlineBridge()
+    @State private var sidebar: SidebarItem? = .folder
 
     var body: some View {
+        NavigationSplitView {
+            SidebarView(store: store, selection: $sidebar)
+        } detail: {
+            detail
+        }
+    }
+
+    private var detail: some View {
         VStack(spacing: 0) {
             if store.shouldSuggestFDA {
                 FDABanner(store: store)
                 Divider()
             }
-            content
+            detailContent
             Divider()
             FooterView(store: store, bridge: bridge)
         }
-        .frame(minWidth: 860, minHeight: 560)
+        .frame(minWidth: 640, minHeight: 480)
         .navigationTitle(store.rootURL?.lastPathComponent ?? "Radix")
         .toolbar { toolbar }
+        .onChange(of: sidebar) { _, _ in store.selection = [] }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
             store.openFolder(resolveDirectory(url))
@@ -33,6 +43,8 @@ struct ContentView: View {
             // driven headlessly (screenshots, smoke tests) without the open panel.
             if let path = ProcessInfo.processInfo.environment["RADIX_SCAN_PATH"] {
                 store.openFolder(URL(fileURLWithPath: path))
+            } else {
+                store.loadCachedScan()
             }
         }
         .sheet(
@@ -57,11 +69,13 @@ struct ContentView: View {
         }
     }
 
-    @ViewBuilder private var content: some View {
-        if store.tree != nil {
-            FileOutlineView(store: store, generation: store.generation, bridge: bridge)
-        } else {
+    @ViewBuilder private var detailContent: some View {
+        if store.tree == nil {
             placeholder
+        } else if let sidebar, sidebar.isSmartList {
+            SmartListView(store: store, item: sidebar)
+        } else {
+            FileOutlineView(store: store, generation: store.generation, bridge: bridge)
         }
     }
 

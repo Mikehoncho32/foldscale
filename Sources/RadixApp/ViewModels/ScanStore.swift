@@ -101,6 +101,7 @@ final class ScanStore {
                         self?.deniedDirectories = denied
                         self?.phase = .done
                         self?.refreshFDA()
+                        self?.persist(tree: tree)
                         if ProcessInfo.processInfo.environment["RADIX_LOG"] != nil {
                             let root = tree.rootID
                             let line =
@@ -178,6 +179,7 @@ final class ScanStore {
         generation += 1
         selection = []
         if let rootURL { volume = VolumeStats.forVolume(containing: rootURL) }
+        persist(tree: updated)
         return outcome
     }
 
@@ -207,5 +209,26 @@ final class ScanStore {
         self.tree = updated
         generation += 1
         selection = []
+        persist(tree: updated)
+    }
+
+    // MARK: - Persistence
+
+    /// Loads the last persisted scan — no rescan — so a relaunch shows prior results
+    /// (handoff §5, item 10; §6: never auto-*scan* on launch).
+    func loadCachedScan() {
+        guard tree == nil, let snapshot = ScanCache.load() else { return }
+        let root = URL(fileURLWithPath: snapshot.rootPath)
+        tree = snapshot.tree
+        rootURL = root
+        generation += 1
+        phase = .done
+        volume = VolumeStats.forVolume(containing: root)
+        refreshFDA()
+    }
+
+    private func persist(tree: FileTree) {
+        guard let path = rootURL?.path else { return }
+        Task.detached { try? ScanCache.save(tree: tree, rootPath: path, savedAt: Date()) }
     }
 }

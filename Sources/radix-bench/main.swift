@@ -61,8 +61,36 @@ do {
                 + "scan_s=\(String(format: "%.2f", scanSeconds))"
         )
 
+    case "cache":
+        let tree = try Scanner.scan(at: url, options: ScanOptions(exclusions: .none))
+        let snapshot = ScanSnapshot(rootPath: url.path, savedAt: Date(), tree: tree)
+
+        let plistEncoder = PropertyListEncoder()
+        plistEncoder.outputFormat = .binary
+        let binary = try plistEncoder.encode(snapshot)
+        let binaryLoadStart = DispatchTime.now()
+        _ = try PropertyListDecoder().decode(ScanSnapshot.self, from: binary)
+        let binaryLoadMs = seconds(since: binaryLoadStart) * 1000
+
+        let json = try JSONEncoder().encode(snapshot)
+        let jsonLoadStart = DispatchTime.now()
+        _ = try JSONDecoder().decode(ScanSnapshot.self, from: json)
+        let jsonLoadMs = seconds(since: jsonLoadStart) * 1000
+
+        let compressed = try (binary as NSData).compressed(using: .lzfse) as Data
+        let lzfseLoadStart = DispatchTime.now()
+        let decompressed = try (compressed as NSData).decompressed(using: .lzfse) as Data
+        _ = try PropertyListDecoder().decode(ScanSnapshot.self, from: decompressed)
+        let lzfseLoadMs = seconds(since: lzfseLoadStart) * 1000
+
+        print(
+            "cache nodes=\(tree.count) "
+                + "binary_bytes=\(binary.count) binary_load_ms=\(String(format: "%.0f", binaryLoadMs)) "
+                + "json_bytes=\(json.count) json_load_ms=\(String(format: "%.0f", jsonLoadMs)) "
+                + "lzfse_bytes=\(compressed.count) lzfse_load_ms=\(String(format: "%.0f", lzfseLoadMs))")
+
     default:
-        die("unknown layout '\(layout)' (expected soa or class)", code: 2)
+        die("unknown layout '\(layout)' (expected soa, class, or cache)", code: 2)
     }
 } catch {
     die("scan failed: \(error)", code: 1)
