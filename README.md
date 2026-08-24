@@ -41,8 +41,13 @@ separates this from "Finder with a size column."
 
 ## Install
 
-> Radix has not shipped its first release yet. When it does, this section links a notarized DMG from
-> [GitHub Releases](../../releases); a Homebrew cask follows in v1.1. Until then, build from source below.
+Download **`Radix-1.0.0.dmg`** from the [latest release](../../releases/latest), open it, and drag
+**Radix** into your Applications folder.
+
+> **First launch:** the v1.0 build is not notarized yet (notarization requires an Apple Developer ID
+> certificate), so macOS Gatekeeper will warn on first open. **Right-click Radix → Open**, then click
+> **Open** in the dialog — a one-time step. A notarized build and a Homebrew cask follow once code
+> signing is set up (see `Scripts/notarize.sh`).
 
 ### Full Disk Access
 
