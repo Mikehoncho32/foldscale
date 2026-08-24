@@ -289,3 +289,98 @@ public struct FileTreeBuilder: TreeBuilder {
         )
     }
 }
+
+// MARK: - Codable (scan cache)
+
+extension FileTree: Codable {
+    private enum Key: String, CodingKey {
+        case rootID, parents, firstChild, nextSibling, ownSizes, totalSizes
+        case logicalSizes, itemCounts, mtimes, flags, nameOffsets, nameLengths, nameStorage
+        case removed
+    }
+
+    /// Encodes each parallel array as one raw-bytes `Data` blob (trivial element
+    /// types), which is fast and compact — the basis of the ADR-0003 cache format.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: Key.self)
+        try container.encode(rootID, forKey: .rootID)
+        try container.encode(Self.blob(parentIDs), forKey: .parents)
+        try container.encode(Self.blob(firstChildIDs), forKey: .firstChild)
+        try container.encode(Self.blob(nextSiblingIDs), forKey: .nextSibling)
+        try container.encode(Self.blob(ownSizes), forKey: .ownSizes)
+        try container.encode(Self.blob(totalSizes), forKey: .totalSizes)
+        try container.encode(Self.blob(logicalSizes), forKey: .logicalSizes)
+        try container.encode(Self.blob(itemCounts), forKey: .itemCounts)
+        try container.encode(Self.blob(modificationTimes), forKey: .mtimes)
+        try container.encode(Self.blob(nodeFlags), forKey: .flags)
+        try container.encode(Self.blob(nameOffsets), forKey: .nameOffsets)
+        try container.encode(Self.blob(nameLengths), forKey: .nameLengths)
+        try container.encode(Data(nameStorage), forKey: .nameStorage)
+        try container.encode(Self.blob(Array(removed)), forKey: .removed)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: Key.self)
+        rootID = try container.decode(Int32.self, forKey: .rootID)
+        parentIDs = try Self.array(container.decode(Data.self, forKey: .parents))
+        firstChildIDs = try Self.array(container.decode(Data.self, forKey: .firstChild))
+        nextSiblingIDs = try Self.array(container.decode(Data.self, forKey: .nextSibling))
+        ownSizes = try Self.array(container.decode(Data.self, forKey: .ownSizes))
+        totalSizes = try Self.array(container.decode(Data.self, forKey: .totalSizes))
+        logicalSizes = try Self.array(container.decode(Data.self, forKey: .logicalSizes))
+        itemCounts = try Self.array(container.decode(Data.self, forKey: .itemCounts))
+        modificationTimes = try Self.array(container.decode(Data.self, forKey: .mtimes))
+        nodeFlags = try Self.array(container.decode(Data.self, forKey: .flags))
+        nameOffsets = try Self.array(container.decode(Data.self, forKey: .nameOffsets))
+        nameLengths = try Self.array(container.decode(Data.self, forKey: .nameLengths))
+        nameStorage = [UInt8](try container.decode(Data.self, forKey: .nameStorage))
+        let removedData = try container.decodeIfPresent(Data.self, forKey: .removed) ?? Data()
+        removed = Set(try Self.array(removedData) as [NodeID])
+        try Self.validate(self, codingPath: container.codingPath)
+    }
+
+    private static func blob<T>(_ array: [T]) -> Data {
+        array.withUnsafeBytes { Data($0) }
+    }
+
+    /// Reconstructs `[T]` from a raw-bytes blob, rejecting a size that isn't an
+    /// exact multiple of the element stride (catches a corrupt/truncated cache).
+    private static func array<T>(_ data: Data) throws -> [T] {
+        let stride = MemoryLayout<T>.stride
+        guard data.count % stride == 0 else {
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "cache blob size not a multiple of stride"))
+        }
+        let count = data.count / stride
+        return [T](unsafeUninitializedCapacity: count) { buffer, initialized in
+            data.copyBytes(to: UnsafeMutableRawBufferPointer(buffer))
+            initialized = count
+        }
+    }
+
+    /// Rejects a structurally-inconsistent decoded tree (mismatched array lengths
+    /// or name offsets past the storage end) so a corrupt cache fails to load —
+    /// forcing a fresh scan — instead of crashing later in `name(of:)`.
+    private static func validate(_ tree: FileTree, codingPath: [CodingKey]) throws {
+        func fail(_ message: String) -> DecodingError {
+            DecodingError.dataCorrupted(.init(codingPath: codingPath, debugDescription: message))
+        }
+        let count = tree.parentIDs.count
+        let sameLength =
+            [
+                tree.firstChildIDs.count, tree.nextSiblingIDs.count, tree.ownSizes.count,
+                tree.totalSizes.count, tree.logicalSizes.count, tree.itemCounts.count,
+                tree.modificationTimes.count, tree.nodeFlags.count, tree.nameOffsets.count,
+                tree.nameLengths.count,
+            ].allSatisfy { $0 == count }
+        guard sameLength else { throw fail("inconsistent array lengths") }
+        guard tree.rootID == FileTree.none || (tree.rootID >= 0 && Int(tree.rootID) < count) else {
+            throw fail("root id out of range")
+        }
+        let storageCount = tree.nameStorage.count
+        for index in 0..<count
+        where Int(tree.nameOffsets[index]) + Int(tree.nameLengths[index]) > storageCount {
+            throw fail("name offset out of bounds")
+        }
+    }
+}
