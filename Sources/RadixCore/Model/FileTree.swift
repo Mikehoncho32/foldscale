@@ -16,14 +16,16 @@ public struct FileTree: Sendable {
     private let firstChildIDs: [NodeID]
     private let nextSiblingIDs: [NodeID]
     private let ownSizes: [Int64]
-    private let totalSizes: [Int64]
+    private var totalSizes: [Int64]
     private let logicalSizes: [Int64]
-    private let itemCounts: [Int64]
+    private var itemCounts: [Int64]
     private let modificationTimes: [Int64]
     private let nodeFlags: [NodeFlags]
     private let nameOffsets: [UInt32]
     private let nameLengths: [UInt16]
     private let nameStorage: [UInt8]
+    /// Nodes trashed since the scan, hidden from the live tree and its totals.
+    private var removed: Set<NodeID> = []
 
     /// The root node id, or `.none` for an empty tree.
     public let rootID: NodeID
@@ -86,16 +88,19 @@ extension FileTree {
     /// Number of descendant nodes under this node (files + directories).
     public func itemCount(of node: NodeID) -> Int64 { itemCounts[Int(node)] }
 
-    /// Number of direct children of this node.
+    /// Number of direct children of this node (excluding trashed ones).
     public func childCount(of node: NodeID) -> Int {
         var count = 0
         var child = firstChildIDs[Int(node)]
         while child != FileTree.none {
-            count += 1
+            if !removed.contains(child) { count += 1 }
             child = nextSiblingIDs[Int(child)]
         }
         return count
     }
+
+    /// Whether the node has been trashed (hidden from the live tree).
+    public func isRemoved(_ node: NodeID) -> Bool { removed.contains(node) }
 
     /// Last-modification time, seconds since the Unix epoch.
     public func modificationTime(of node: NodeID) -> Int64 { modificationTimes[Int(node)] }
@@ -103,12 +108,12 @@ extension FileTree {
     /// Type and state flags for the node.
     public func flags(of node: NodeID) -> NodeFlags { nodeFlags[Int(node)] }
 
-    /// The node's children, in insertion order.
+    /// The node's children, in insertion order (excluding trashed ones).
     public func children(of node: NodeID) -> [NodeID] {
         var result: [NodeID] = []
         var child = firstChildIDs[Int(node)]
         while child != FileTree.none {
-            result.append(child)
+            if !removed.contains(child) { result.append(child) }
             child = nextSiblingIDs[Int(child)]
         }
         return result
@@ -129,6 +134,41 @@ extension FileTree {
             current = parentIDs[Int(current)]
         }
         return components.reversed().joined(separator: "/")
+    }
+
+    /// Path components from the scan root down to `node`, **excluding** the root's
+    /// own name — so `rootURL.appendingPathComponent(...)` rebuilds the file's URL
+    /// regardless of what the root is (a folder, or "/").
+    public func pathComponentsFromRoot(of node: NodeID) -> [String] {
+        var components: [String] = []
+        var current = node
+        while current != FileTree.none, current != rootID {
+            components.append(name(of: current))
+            current = parentIDs[Int(current)]
+        }
+        return components.reversed()
+    }
+
+    /// Removes a trashed node, subtracting its subtree's allocated size and item
+    /// count from every ancestor so the tree re-totals instantly, no rescan
+    /// (handoff §4, rule 9). Idempotent; a node under an already-removed ancestor
+    /// is a no-op, so trashing overlapping selections never double-counts.
+    public mutating func remove(_ node: NodeID) {
+        guard node != FileTree.none, node != rootID, !removed.contains(node) else { return }
+        var ancestor = parentIDs[Int(node)]
+        while ancestor != FileTree.none {
+            if removed.contains(ancestor) { return }
+            ancestor = parentIDs[Int(ancestor)]
+        }
+        let subtreeBytes = totalSizes[Int(node)]
+        let subtreeItems = itemCounts[Int(node)] + 1
+        removed.insert(node)
+        ancestor = parentIDs[Int(node)]
+        while ancestor != FileTree.none {
+            totalSizes[Int(ancestor)] -= subtreeBytes
+            itemCounts[Int(ancestor)] -= subtreeItems
+            ancestor = parentIDs[Int(ancestor)]
+        }
     }
 }
 
