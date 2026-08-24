@@ -1,0 +1,28 @@
+included:
+  - Sources
+  - Tests
+
+opt_in_rules:
+  - empty_count
+  - explicit_init
+  - first_where
+  - sorted_first_last
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+
+disabled_rules:
+  - todo
+
+line_length:
+  warning: 120
+  error: 200
+
+identifier_name:
+  min_length: 2
+  excluded:
+    - id
+    - x
+    - y
+
+type_name:
+  min_length: 3

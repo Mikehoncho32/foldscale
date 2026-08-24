@@ -1,0 +1,45 @@
+name: Radix
+
+options:
+  bundleIdPrefix: io.github.mikehoncho32
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+packages:
+  RadixCore:
+    path: .
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.0.1"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  RadixApp:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/RadixApp
+    dependencies:
+      - package: RadixCore
+        product: RadixCore
+    settings:
+      base:
+        PRODUCT_NAME: Radix
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.mikehoncho32.radix
+        GENERATE_INFOPLIST_FILE: "YES"
+        INFOPLIST_KEY_CFBundleDisplayName: Radix
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_NSHumanReadableCopyright: "MIT License. See LICENSE."
+        # Radix ships non-sandboxed (handoff §3): a disk analyzer needs real
+        # filesystem access, gated by user-granted Full Disk Access (TCC), not
+        # an entitlement. Hardened runtime is required for notarization (Milestone 6).
+        ENABLE_HARDENED_RUNTIME: "YES"
+        ENABLE_APP_SANDBOX: "NO"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
