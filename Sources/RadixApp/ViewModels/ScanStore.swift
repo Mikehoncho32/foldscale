@@ -366,6 +366,20 @@ final class ScanStore {
         nodes.compactMap { url(for: $0) }
     }
 
+    /// The live node for an on-disk URL, if it lies inside the current scan — so a
+    /// Favorite like Desktop can be *jumped to* in the loaded tree instead of
+    /// rescanned as a new root. `nil` when there's no tree or the URL is outside it.
+    func node(for url: URL) -> FileTree.NodeID? {
+        guard let tree, let rootURL else { return nil }
+        let rootPath = rootURL.standardizedFileURL.path
+        let path = url.standardizedFileURL.path
+        if path == rootPath { return tree.rootID }
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        guard path.hasPrefix(prefix) else { return nil }
+        let components = path.dropFirst(prefix.count).split(separator: "/").map(String.init)
+        return tree.node(atPathComponents: components)
+    }
+
     /// Whether a node is protected from trashing (handoff §6).
     func isProtected(_ node: FileTree.NodeID) -> Bool {
         guard let url = url(for: node) else { return true }

@@ -136,10 +136,17 @@ struct SidebarView: View {
 
     // MARK: - Places
 
+    /// A place shortcut. If the folder is already inside the loaded scan (e.g.
+    /// Desktop under a whole-drive scan) it just focuses it — instantly, with a quiet
+    /// background refresh. Only a folder outside the scan starts a new scan.
     private func placeRow(_ url: URL, icon: String, label: String? = nil) -> some View {
         Button {
-            store.openFolder(url)
-            selection = nil
+            if let node = store.node(for: url) {
+                selection = .node(node)
+            } else {
+                store.openFolder(url)
+                selection = nil
+            }
         } label: {
             Label(label ?? displayName(url), systemImage: icon)
                 .frame(maxWidth: .infinity, alignment: .leading)
