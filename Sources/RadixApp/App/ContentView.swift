@@ -55,7 +55,11 @@ struct ContentView: View {
             }
         }
         .onChange(of: store.scanSession, initial: true) { _, _ in
-            if let tree = store.tree { sidebar = .node(tree.rootID) }
+            // First look: land on the home folder — the Mac's "main folders" view,
+            // where nearly all reclaimable space lives — when it's inside the scan.
+            guard let tree = store.tree else { return }
+            let home = FileManager.default.homeDirectoryForCurrentUser
+            sidebar = store.node(for: home) != nil ? .place(home) : .node(tree.rootID)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             store.flushPersist()
