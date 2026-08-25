@@ -14,17 +14,17 @@ struct SidebarView: View {
         List(selection: $selection) {
             driveSection
 
+            Section("Favorites") {
+                ForEach(favorites, id: \.self) { url in
+                    placeRow(url, icon: favoriteIcon(url))
+                }
+            }
+
             Section("Smart Lists") {
                 Label(SidebarItem.largeFiles.title, systemImage: SidebarItem.largeFiles.systemImage)
                     .tag(SidebarItem.largeFiles)
                 Label(SidebarItem.oldAndBig.title, systemImage: SidebarItem.oldAndBig.systemImage)
                     .tag(SidebarItem.oldAndBig)
-            }
-
-            Section("Favorites") {
-                ForEach(favorites, id: \.self) { url in
-                    placeRow(url, icon: favoriteIcon(url))
-                }
             }
 
             if !volumes.isEmpty {
