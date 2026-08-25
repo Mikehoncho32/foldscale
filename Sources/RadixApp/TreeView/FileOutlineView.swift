@@ -9,7 +9,11 @@ import SwiftUI
 struct FileOutlineView: NSViewRepresentable {
     let store: ScanStore
     let generation: Int
+    /// The folder whose contents fill the top level (the sidebar's focused node).
+    let focus: FileTree.NodeID
     let bridge: OutlineBridge
+    /// Called when the user double-clicks a folder row (Finder-like "open").
+    let onOpenDirectory: (FileTree.NodeID) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(store: store) }
 
@@ -22,6 +26,8 @@ struct FileOutlineView: NSViewRepresentable {
         outline.usesAlternatingRowBackgroundColors = false
         outline.dataSource = context.coordinator
         outline.delegate = context.coordinator
+        outline.target = context.coordinator
+        outline.doubleAction = #selector(Coordinator.handleDoubleClick)
 
         for spec in Self.columns {
             let column = NSTableColumn(identifier: .init(spec.id))
@@ -48,12 +54,14 @@ struct FileOutlineView: NSViewRepresentable {
         menu.delegate = context.coordinator
         outline.menu = menu
         bridge.outline = outline
-        context.coordinator.apply(tree: store.tree, generation: generation)
+        context.coordinator.onOpenDirectory = onOpenDirectory
+        context.coordinator.apply(tree: store.tree, generation: generation, focus: focus)
         return scroll
     }
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
-        context.coordinator.apply(tree: store.tree, generation: generation)
+        context.coordinator.onOpenDirectory = onOpenDirectory
+        context.coordinator.apply(tree: store.tree, generation: generation, focus: focus)
     }
 
     private struct ColumnSpec {
@@ -79,9 +87,11 @@ struct FileOutlineView: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
         weak var outlineView: NSOutlineView?
+        var onOpenDirectory: (FileTree.NodeID) -> Void = { _ in }
         private let store: ScanStore
         private var tree: FileTree?
         private var generation = -1
+        private var focus: FileTree.NodeID = FileTree.none
         private var sortKey: SortKey = .size
         private var ascending = false
         private var nodeCache: [FileTree.NodeID: OutlineNode] = [:]
@@ -89,13 +99,29 @@ struct FileOutlineView: NSViewRepresentable {
 
         init(store: ScanStore) { self.store = store }
 
-        func apply(tree: FileTree?, generation: Int) {
-            guard generation != self.generation else { return }
+        /// Reloads when the tree generation or the focused folder changes. A
+        /// focus-only change keeps the (still valid) sorted-children cache but drops
+        /// row identities so `NSOutlineView` starts the new top level collapsed.
+        func apply(tree: FileTree?, generation: Int, focus: FileTree.NodeID) {
+            let generationChanged = generation != self.generation
+            guard generationChanged || focus != self.focus else { return }
             self.generation = generation
+            self.focus = focus
             self.tree = tree
             nodeCache.removeAll()
-            childCache.removeAll()
+            if generationChanged { childCache.removeAll() }
             outlineView?.reloadData()
+            if outlineView?.numberOfRows ?? 0 > 0 { outlineView?.scrollRowToVisible(0) }
+        }
+
+        /// Double-clicking a folder row opens it as the new focus (Finder-like).
+        @objc func handleDoubleClick() {
+            guard let outlineView, let tree, outlineView.clickedRow >= 0,
+                let outlineNode = outlineView.item(atRow: outlineView.clickedRow) as? OutlineNode,
+                tree.flags(of: outlineNode.id).contains(.directory),
+                tree.childCount(of: outlineNode.id) > 0
+            else { return }
+            onOpenDirectory(outlineNode.id)
         }
 
         private func node(_ id: FileTree.NodeID) -> OutlineNode {
@@ -123,13 +149,13 @@ struct FileOutlineView: NSViewRepresentable {
         // MARK: NSOutlineViewDataSource
 
         func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
-            guard let tree else { return 0 }
-            let parent = (item as? OutlineNode)?.id ?? tree.rootID
+            guard tree != nil, focus != FileTree.none else { return 0 }
+            let parent = (item as? OutlineNode)?.id ?? focus
             return sortedChildren(of: parent).count
         }
 
         func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
-            let parent = (item as? OutlineNode)?.id ?? tree?.rootID ?? FileTree.none
+            let parent = (item as? OutlineNode)?.id ?? focus
             return node(sortedChildren(of: parent)[index])
         }
 

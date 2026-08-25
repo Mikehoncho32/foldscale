@@ -8,7 +8,11 @@ import SwiftUI
 struct ContentView: View {
     @State private var store = ScanStore()
     @State private var bridge = OutlineBridge()
-    @State private var sidebar: SidebarItem? = .folder
+    @State private var sidebar: SidebarItem?
+
+    /// The folder the main pane shows. Resolved every render against the current
+    /// tree, because node ids are reused across scans and a stale id would crash.
+    private var focusedNode: FileTree.NodeID { store.resolvedFocus(sidebar?.nodeID) }
 
     var body: some View {
         NavigationSplitView {
@@ -29,9 +33,12 @@ struct ContentView: View {
             FooterView(store: store, bridge: bridge)
         }
         .frame(minWidth: 640, minHeight: 480)
-        .navigationTitle(store.rootURL?.lastPathComponent ?? "Radix")
+        .navigationTitle(store.rootDisplayName)
         .toolbar { toolbar }
         .onChange(of: sidebar) { _, _ in store.selection = [] }
+        .onChange(of: store.scanSession, initial: true) { _, _ in
+            if let tree = store.tree { sidebar = .node(tree.rootID) }
+        }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
             store.openFolder(resolveDirectory(url))
@@ -75,7 +82,12 @@ struct ContentView: View {
         } else if let sidebar, sidebar.isSmartList {
             SmartListView(store: store, item: sidebar)
         } else {
-            FileOutlineView(store: store, generation: store.generation, bridge: bridge)
+            let focus = focusedNode
+            BreadcrumbView(store: store, focus: focus) { sidebar = .node($0) }
+            Divider()
+            FileOutlineView(
+                store: store, generation: store.generation, focus: focus, bridge: bridge,
+                onOpenDirectory: { sidebar = .node($0) })
         }
     }
 
