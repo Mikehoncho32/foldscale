@@ -46,21 +46,28 @@ struct SidebarView: View {
     @ViewBuilder private var driveSection: some View {
         Section("Drive") {
             if let tree = store.tree {
-                let root = SidebarNode(id: tree.rootID, tree: tree)
-                // The root is a plain row (not inside OutlineGroup) so its first level
-                // is always visible — OutlineGroup can't start expanded on macOS 14.
-                treeRow(name: store.rootDisplayName, bytes: root.bytes, icon: driveIcon, bold: true)
-                    .tag(SidebarItem.node(root.id))
-                OutlineGroup(root.children ?? [], children: \.children) { node in
-                    treeRow(name: node.name, bytes: node.bytes, icon: "folder")
-                        .tag(SidebarItem.node(node.id))
-                }
-                if let other = store.unscannedVolumeBytes, other > 0 {
-                    treeRow(name: "System & other", bytes: other, icon: "gearshape", dimmed: true)
+                // The drive is the single collapsible root row — it starts closed so
+                // the sidebar stays compact on first load; expanding it reveals the
+                // primary folders (biggest first) and the "System & other" remainder.
+                let root = SidebarNode(
+                    kind: .folder(tree.rootID), tree: tree, otherBytes: store.unscannedVolumeBytes)
+                OutlineGroup([root], children: \.children) { node in
+                    if node.isOther {
+                        treeRow(
+                            name: node.name(rootName: ""), bytes: node.bytes, icon: "gearshape", dimmed: true
+                        )
                         .selectionDisabled(true)
                         .help(
                             "Space used by the sealed System volume, VM, snapshots and caches Radix doesn't scan"
                         )
+                    } else {
+                        let isRoot = node.id == tree.rootID
+                        treeRow(
+                            name: node.name(rootName: store.rootDisplayName), bytes: node.bytes,
+                            icon: isRoot ? driveIcon : "folder", bold: isRoot
+                        )
+                        .tag(SidebarItem.node(node.id))
+                    }
                 }
             } else if store.isScanning {
                 HStack(spacing: 8) {
