@@ -28,7 +28,7 @@ struct SidebarView: View {
             }
 
             if !volumes.isEmpty {
-                Section("Volumes") {
+                Section("Drives") {
                     ForEach(volumes, id: \.self) { url in
                         placeRow(url, icon: "externaldrive", label: volumeName(url))
                     }
