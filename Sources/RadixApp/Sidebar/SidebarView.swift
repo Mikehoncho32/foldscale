@@ -136,23 +136,13 @@ struct SidebarView: View {
 
     // MARK: - Places
 
-    /// A place shortcut. If the folder is already inside the loaded scan (e.g.
-    /// Desktop under a whole-drive scan) it just focuses it — instantly, with a quiet
-    /// background refresh. Only a folder outside the scan starts a new scan.
+    /// A place shortcut: a selectable row, so the clicked Favorite/Volume stays
+    /// highlighted while the drive tree above stays exactly as you left it. The
+    /// window resolves it: a folder inside the loaded scan just gets focused
+    /// (instantly, with a quiet refresh); one outside the scan starts a new scan.
     private func placeRow(_ url: URL, icon: String, label: String? = nil) -> some View {
-        Button {
-            if let node = store.node(for: url) {
-                selection = .node(node)
-            } else {
-                store.openFolder(url)
-                selection = nil
-            }
-        } label: {
-            Label(label ?? displayName(url), systemImage: icon)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        Label(label ?? displayName(url), systemImage: icon)
+            .tag(SidebarItem.place(url))
     }
 
     private var favorites: [URL] {

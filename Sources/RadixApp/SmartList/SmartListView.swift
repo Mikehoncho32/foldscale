@@ -81,7 +81,7 @@ struct SmartListView: View {
         switch item {
         case .oldAndBig: return "No files over 1 GB older than 6 months"
         case .largeFiles: return "No files to rank yet"
-        case .node: return ""
+        case .node, .place: return ""
         }
     }
 }

@@ -33,7 +33,19 @@ struct ContentView: View {
         .navigationTitle(store.rootDisplayName)
         .toolbar { toolbar }
         .onChange(of: sidebar) { old, new in
-            if let id = new?.nodeID { store.setFocus(id) }
+            switch new {
+            case .node(let id):
+                store.setFocus(id)
+            case .place(let url):
+                // Inside the loaded scan → just focus it; outside → scan it as a new root.
+                if let node = store.node(for: url) {
+                    store.setFocus(node)
+                } else {
+                    store.openFolder(url)
+                }
+            case .largeFiles, .oldAndBig, nil:
+                break
+            }
             if old?.isSmartList != new?.isSmartList { store.selection = [] }
         }
         .onChange(of: store.generation) { _, _ in
@@ -87,16 +99,16 @@ struct ContentView: View {
     }
 
     @ViewBuilder private var detailContent: some View {
-        if let tree = store.tree {
+        if store.tree != nil {
             if let sidebar, sidebar.isSmartList {
                 SmartListView(store: store, item: sidebar)
             } else {
+                // The drive overview is pinned on top no matter where you click; the
+                // path and that section's breakdown live beneath it.
                 let focus = store.focusedNode
-                if focus == tree.rootID {
-                    DriveOverviewHeader(store: store)
-                } else {
-                    BreadcrumbView(store: store, focus: focus) { sidebar = .node($0) }
-                }
+                DriveOverviewHeader(store: store)
+                Divider()
+                BreadcrumbView(store: store, focus: focus) { sidebar = .node($0) }
                 Divider()
                 FileOutlineView(
                     store: store, generation: store.generation, focus: focus, bridge: bridge,
