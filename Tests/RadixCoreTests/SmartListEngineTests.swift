@@ -10,6 +10,8 @@ final class SmartListEngineTests: XCTestCase {
     private let context = SmartListContext(rootPath: "/", homePath: "/Users/t")
     private var day: Int64 { 86_400 }
     private var epochNow: Int64 { Int64(1_800_000_000) }
+    private let gigabyte: Int64 = 1_000_000_000
+    private let megabyte: Int64 = 1_000_000
 
     // MARK: - Fixture DSL
 
@@ -51,13 +53,17 @@ final class SmartListEngineTests: XCTestCase {
         (group.map { result.entries(in: $0) } ?? result.entries).map { tree.name(of: $0.node) }
     }
 
+    private func compute(
+        _ kind: SmartListKind, _ tree: FileTree, bundles: [String: BundleInfo] = [:]
+    ) -> SmartListResult {
+        SmartListEngine.compute(
+            kind, in: tree, context: context, bundleInfo: StubBundles(infos: bundles), now: now)
+    }
+
     private struct StubBundles: BundleInfoProvider {
         let infos: [String: BundleInfo]
         func info(forBundleAt absolutePath: String) -> BundleInfo? { infos[absolutePath] }
     }
-
-    private let gigabyte: Int64 = 1_000_000_000
-    private let megabyte: Int64 = 1_000_000
 
     // MARK: - Context
 
@@ -78,12 +84,18 @@ final class SmartListEngineTests: XCTestCase {
 
     func testDownloadsPicksInstallersAndForgottenBigFiles() {
         let tree = build([
-            .dir("Applications", [.dir("Slack.app", [.file("x", bytes: 1)])]),
+            .dir(
+                "Applications",
+                [
+                    .dir("Slack.app", [.file("x", bytes: 1)]),
+                    .dir("Adobe", [.dir("Photoshop.app", [.file("x", bytes: 1)])]),
+                ]),
             home([
                 .dir(
                     "Downloads",
                     [
-                        .file("Slack-4.29.149.dmg", bytes: 150 * megabyte, mtimeDaysAgo: 90),
+                        .file("Slack-4.29.149-macOS.dmg", bytes: 150 * megabyte, mtimeDaysAgo: 90),
+                        .file("Photoshop 25.zip", bytes: 30 * megabyte, mtimeDaysAgo: 9),
                         .file("photo.jpg", bytes: 3 * megabyte, mtimeDaysAgo: 400),
                         .file("movie.iso", bytes: 4 * gigabyte, mtimeDaysAgo: 10),
                         .file("dataset.bin", bytes: 900 * megabyte, mtimeDaysAgo: 45),
@@ -99,20 +111,31 @@ final class SmartListEngineTests: XCTestCase {
                 .dir("Desktop", [.file("Installer.pkg", bytes: 20 * megabyte, mtimeDaysAgo: 5)]),
             ]),
         ])
-        let result = SmartListEngine.compute(
-            .downloads, in: tree, context: context, bundleInfo: StubBundles(infos: [:]), now: now)
+        let result = compute(.downloads, tree)
 
         XCTAssertEqual(
             names(result, in: tree, group: "Installers & archives"),
-            ["movie.iso", "Slack-4.29.149.dmg", "Installer.pkg"],
+            ["movie.iso", "Slack-4.29.149-macOS.dmg", "Photoshop 25.zip", "Installer.pkg"],
             "biggest first; depth-limited so buried.zip is out")
         XCTAssertEqual(
             names(result, in: tree, group: "Big and forgotten"), ["dataset.bin"],
-            "fresh.bin is too new, photo.jpg too small")
-        let slack = result.entries.first { tree.name(of: $0.node) == "Slack-4.29.149.dmg" }!
-        XCTAssertEqual(slack.note, "3 mo ago · already installed")
+            "fresh.bin too new, photo.jpg too small")
+        let note = { (name: String) in result.entries.first { tree.name(of: $0.node) == name }?.note }
+        XCTAssertEqual(
+            note("Slack-4.29.149-macOS.dmg"), "3 mo ago · already installed",
+            "version cut at the first versioned separator")
+        XCTAssertEqual(
+            note("Photoshop 25.zip"), "9 d ago · already installed", "nested-once app counts as installed")
+        XCTAssertEqual(note("movie.iso"), "10 d ago")
         XCTAssertEqual(result.groups, ["Installers & archives", "Big and forgotten"])
-        XCTAssertEqual(result.totalBytes, 4 * gigabyte + 150 * megabyte + 20 * megabyte + 900 * megabyte)
+    }
+
+    func testProductNameStripsVersionsInMultiWordNames() {
+        XCTAssertEqual(SmartListQuery.productName(from: "Google Chrome 120.0.6099.dmg"), "google chrome")
+        XCTAssertEqual(SmartListQuery.productName(from: "iterm2-3_5_0.zip"), "iterm2")
+        XCTAssertEqual(SmartListQuery.productName(from: "Xcode_15.2.xip"), "xcode")
+        XCTAssertEqual(SmartListQuery.productName(from: "Radix-v1.0.0.dmg"), "radix")
+        XCTAssertEqual(SmartListQuery.productName(from: "archive.tar.gz"), "archive")
     }
 
     // MARK: - Caches & Trash
@@ -150,8 +173,7 @@ final class SmartListEngineTests: XCTestCase {
                     ]),
             ]),
         ])
-        let result = SmartListEngine.compute(
-            .cachesAndTrash, in: tree, context: context, bundleInfo: StubBundles(infos: [:]), now: now)
+        let result = compute(.cachesAndTrash, tree)
 
         XCTAssertEqual(names(result, in: tree, group: "Trash"), [".Trash"])
         XCTAssertEqual(result.entries(in: "Trash").first?.safety, .informational)
@@ -208,25 +230,62 @@ final class SmartListEngineTests: XCTestCase {
                     ])
             ]),
         ])
-        let stub = StubBundles(infos: [
+        let bundles = [
             "/Applications/Big.app": BundleInfo(
                 name: "Big", identifier: "com.big.app", category: "public.app-category.productivity"),
             "/Applications/Game.app": BundleInfo(
                 name: "Game", identifier: "com.game", category: "public.app-category.games"),
-        ])
-        let result = SmartListEngine.compute(
-            .appsAndGames, in: tree, context: context, bundleInfo: stub, now: now)
+        ]
+        let result = compute(.appsAndGames, tree, bundles: bundles)
 
         XCTAssertEqual(names(result, in: tree, group: "Games"), ["Elden Ring", "Hades", "Game.app"])
         XCTAssertEqual(
             names(result, in: tree, group: "Apps"), ["Photoshop.app", "Big.app", "Terminal.app"],
-            "nested-once apps found, Contents/ not treated as an app")
+            "nested-once apps found; Contents/ isn't an app")
         let big = result.entries.first { tree.name(of: $0.node) == "Big.app" }!
         XCTAssertEqual(big.extraBytes, 700 * megabyte, "Application Support/Big + Containers/com.big.app")
         XCTAssertEqual(big.note, "+ 700 MB support data · updated 3 mo ago")
         XCTAssertEqual(result.groups, ["Games", "Apps"])
         XCTAssertEqual(
             result.entries.first.map { tree.name(of: $0.node) }, "Elden Ring", "ranked by real footprint")
+    }
+
+    func testSteamGamesAreNotCountedTwiceThroughSupportData() {
+        let tree = build([
+            .dir("Applications", [.dir("Steam.app", [.file("bin", bytes: 2 * gigabyte)])]),
+            home([
+                .dir(
+                    "Library",
+                    [
+                        .dir(
+                            "Application Support",
+                            [
+                                .dir(
+                                    "Steam",
+                                    [
+                                        .dir(
+                                            "steamapps",
+                                            [
+                                                .dir(
+                                                    "common",
+                                                    [.dir("Dota 2", [.file("data", bytes: 50 * gigabyte)])])
+                                            ]),
+                                        .dir("shadercache", [.file("s", bytes: 1 * gigabyte)]),
+                                    ])
+                            ])
+                    ])
+            ]),
+        ])
+        let bundles = [
+            "/Applications/Steam.app": BundleInfo(name: "Steam", identifier: "com.valvesoftware.steam")
+        ]
+        let result = compute(.appsAndGames, tree, bundles: bundles)
+
+        let steam = result.entries.first { tree.name(of: $0.node) == "Steam.app" }!
+        XCTAssertEqual(
+            steam.extraBytes, 1 * gigabyte, "the listed game is subtracted from Steam's support data")
+        XCTAssertEqual(
+            result.totalBytes, 2 * gigabyte + 1 * gigabyte + 50 * gigabyte, "each byte counted once")
     }
 
     // MARK: - Big projects
@@ -266,18 +325,27 @@ final class SmartListEngineTests: XCTestCase {
                     ]),
                 .dir(
                     "Movies",
-                    [.dir("Wedding", [.file("Wedding.fcpbundle", bytes: 30 * gigabyte, mtimeDaysAgo: 400)])]),
-                .dir("Music", [.dir("Album", [.file("Song.logicx", bytes: 2 * gigabyte, mtimeDaysAgo: 10)])]),
+                    [.dir("Wedding.fcpbundle", [.file("media", bytes: 30 * gigabyte, mtimeDaysAgo: 400)])]),
+                .dir(
+                    "Music",
+                    [
+                        .dir(
+                            "Album",
+                            [.dir("Song.logicx", [.file("audio", bytes: 2 * gigabyte, mtimeDaysAgo: 10)])])
+                    ]),
             ])
         ])
-        let result = SmartListEngine.compute(
-            .bigProjects, in: tree, context: context, bundleInfo: StubBundles(infos: [:]), now: now)
+        let result = compute(.bigProjects, tree)
 
         XCTAssertEqual(
             names(result, in: tree, group: "Code"), ["radix"],
             "nested root not descended into; tiny below the floor; ~/Library skipped")
-        XCTAssertEqual(names(result, in: tree, group: "Video"), ["Wedding"])
-        XCTAssertEqual(names(result, in: tree, group: "Audio"), ["Album"])
+        XCTAssertEqual(
+            names(result, in: tree, group: "Video"), ["Wedding.fcpbundle"],
+            "a project bundle is the project itself")
+        XCTAssertEqual(
+            names(result, in: tree, group: "Audio"), ["Song.logicx"],
+            "a folder holding a bundle is descended, not promoted")
         XCTAssertEqual(
             names(result, in: tree, group: "Other"), ["loose-big-folder"],
             "> 1 GB direct child of ~/Developer")
@@ -286,6 +354,38 @@ final class SmartListEngineTests: XCTestCase {
             radix.note, "last touched 20 d ago · 2 GB rebuildable",
             "junk excluded from last-touched, counted as rebuildable")
         XCTAssertEqual(result.groups, ["Code", "Video", "Audio", "Other"])
+    }
+
+    func testBigProjectsNeverPromotesTopLevelHomeFolders() {
+        let tree = build([
+            home([
+                .dir(
+                    "Movies",
+                    [
+                        .dir("iMovie Library.imovielibrary", [.file("media", bytes: 400 * gigabyte)]),
+                        .dir("Archive-2019", [.file("old.mov", bytes: 80 * gigabyte, mtimeDaysAgo: 700)]),
+                        .dir("Projects", [.dir("A.fcpbundle", [.file("media", bytes: 60 * gigabyte)])]),
+                    ]),
+                .dir("Documents", [.file("Edit.prproj", bytes: 2 * megabyte), .file("notes.txt", bytes: 1)]),
+                .dir(
+                    "Desktop",
+                    [.dir("App.xcodeproj", [.file("p", bytes: 1)]), .file("big.bin", bytes: 3 * gigabyte)]),
+            ])
+        ])
+        let result = compute(.bigProjects, tree)
+
+        let listed = Set(names(result, in: tree))
+        XCTAssertFalse(listed.contains("Movies"), "an iMovie library in ~/Movies must not swallow ~/Movies")
+        XCTAssertFalse(
+            listed.contains("Documents"), "a loose .prproj in ~/Documents must not promote ~/Documents")
+        XCTAssertFalse(listed.contains("Desktop"), "an .xcodeproj on the Desktop must not promote ~/Desktop")
+        XCTAssertEqual(
+            names(result, in: tree, group: "Video"), ["iMovie Library.imovielibrary", "A.fcpbundle"],
+            "bundles listed themselves, even one folder down")
+        XCTAssertEqual(
+            names(result, in: tree, group: "Other"), ["Archive-2019"], "big loose folder in ~/Movies")
+        XCTAssertFalse(
+            listed.contains("Projects"), "a folder holding project bundles is descended, not promoted")
     }
 
     // MARK: - Videos
@@ -301,6 +401,9 @@ final class SmartListEngineTests: XCTestCase {
                             mtimeDaysAgo: 3),
                         .file("Cut_v3.MP4", bytes: 2 * gigabyte, mtimeDaysAgo: 40),
                         .file("holiday.mov", bytes: 5 * gigabyte, mtimeDaysAgo: 200),
+                        .file("V8 engine demo.mov", bytes: 300 * megabyte),
+                        .file("Recordings of nature.mov", bytes: 250 * megabyte),
+                        .file("finalists.mov", bytes: 200 * megabyte),
                         .file("tiny.mov", bytes: 5 * megabyte),
                     ]),
                 .dir(
@@ -313,8 +416,7 @@ final class SmartListEngineTests: XCTestCase {
                 .dir("Movies", [.dir("Final.fcpbundle", [.file("render.mov", bytes: 9 * gigabyte)])]),
             ])
         ])
-        let result = SmartListEngine.compute(
-            .videos, in: tree, context: context, bundleInfo: StubBundles(infos: [:]), now: now)
+        let result = compute(.videos, tree)
 
         XCTAssertEqual(
             names(result, in: tree, group: "Recordings"),
@@ -323,8 +425,10 @@ final class SmartListEngineTests: XCTestCase {
             names(result, in: tree, group: "Exports"), ["Cut_v3.MP4"],
             "version token, case-insensitive extension")
         XCTAssertEqual(
-            names(result, in: tree, group: "Clips"), ["holiday.mov"],
-            "tiny.mov below floor; library contents pruned")
+            names(result, in: tree, group: "Clips"),
+            ["holiday.mov", "V8 engine demo.mov", "Recordings of nature.mov", "finalists.mov"],
+            "leading V8, 'Recordings', and 'finalists' are not exports/recordings; tiny below floor; libraries pruned"
+        )
         XCTAssertEqual(result.groups, ["Recordings", "Exports", "Clips"])
     }
 
@@ -334,8 +438,26 @@ final class SmartListEngineTests: XCTestCase {
         ])
         let sub = context.node(forAbsolutePath: "/Users/t/Downloads/sub", in: tree)!
         tree.remove(sub)
-        let result = SmartListEngine.compute(
-            .downloads, in: tree, context: context, bundleInfo: StubBundles(infos: [:]), now: now)
-        XCTAssertEqual(names(result, in: tree), ["a.dmg"])
+        XCTAssertEqual(names(compute(.downloads, tree), in: tree), ["a.dmg"])
+    }
+
+    func testComputeAllStopsWhenCancelled() {
+        let tree = build([home([.dir("Downloads", [.file("a.dmg", bytes: 10)])])])
+        let results = SmartListEngine.computeAll(
+            in: tree, context: context, bundleInfo: StubBundles(infos: [:]), now: now, isCancelled: { true })
+        XCTAssertTrue(results.isEmpty)
+    }
+
+    func testForEachDescendantIsPreOrderAndPrunable() {
+        let tree = build([
+            .dir("a", [.file("a1", bytes: 1), .dir("b", [.file("b1", bytes: 1)]), .file("a2", bytes: 1)]),
+            .file("z", bytes: 1),
+        ])
+        var visited: [String] = []
+        tree.forEachDescendant(of: tree.rootID) { node in
+            visited.append(tree.name(of: node))
+            return tree.name(of: node) != "b"  // prune b's children
+        }
+        XCTAssertEqual(visited, ["a", "a1", "b", "a2", "z"])
     }
 }

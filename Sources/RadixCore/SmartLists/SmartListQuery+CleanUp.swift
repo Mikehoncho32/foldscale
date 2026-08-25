@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Downloads
 
 extension SmartListQuery {
-    static let installerExtensions = SmartListBytes.set([
+    static let installerExtensions = SmartListBytes.bytes([
         "dmg", "pkg", "mpkg", "zip", "iso", "xip", "ipsw", "rar", "7z", "tar", "gz", "tgz",
     ])
     static let forgottenMinimumBytes: Int64 = 200_000_000
@@ -39,36 +39,31 @@ extension SmartListQuery {
         return (entries, [installers, forgotten])
     }
 
-    /// "Slack-4.29.149-macOS.dmg" → "slack"; "Xcode_15.zip" → "xcode".
+    /// "Slack-4.29.149-macOS.dmg" → "slack"; "Google Chrome 120.zip" → "google chrome".
+    /// Cuts at the first separator that is followed by a version-shaped token.
     static func productName(from fileName: String) -> String {
         var base = (fileName as NSString).deletingPathExtension.lowercased()
         if base.hasSuffix(".tar") { base = String(base.dropLast(4)) }
-        for separator in ["-", "_", " "] {
-            guard let range = base.range(of: separator) else { continue }
-            let tail = base[range.upperBound...]
-            let startsWithVersion =
-                tail.first?.isNumber == true
-                || (tail.hasPrefix("v") && tail.dropFirst().first?.isNumber == true)
-            if startsWithVersion {
-                base = String(base[..<range.lowerBound])
-                break
+        var index = base.startIndex
+        while index < base.endIndex {
+            if "-_ ".contains(base[index]) {
+                let tail = base[base.index(after: index)...]
+                let startsWithVersion =
+                    tail.first?.isNumber == true
+                    || (tail.hasPrefix("v") && tail.dropFirst().first?.isNumber == true)
+                if startsWithVersion { return String(base[..<index]) }
             }
+            index = base.index(after: index)
         }
         return base
     }
 
-    /// Lower-cased names of installed apps, cached for the query's lifetime.
+    /// Lower-cased names of installed apps (the same discovery as Apps & games),
+    /// cached for the query's lifetime.
     mutating func appNames() -> Set<String> {
         if let installedAppNames { return installedAppNames }
-        var names = Set<String>()
-        for folder in Self.appFolders {
-            guard let root = node(at: folder) else { continue }
-            tree.forEachChild(of: root) { child in
-                if SmartListBytes.isAppBundle(tree.nameUTF8(of: child)) {
-                    names.insert(Self.appName(tree.name(of: child)).lowercased())
-                }
-            }
-        }
+        var seen = Set<FileTree.NodeID>()
+        let names = Set(collectApps(seen: &seen).map { Self.appName(tree.name(of: $0)).lowercased() })
         installedAppNames = names
         return names
     }

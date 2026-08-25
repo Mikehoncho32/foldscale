@@ -10,7 +10,9 @@ struct SmartListView: View {
     let kind: SmartListKind
 
     var body: some View {
-        if let tree = store.tree, let result = store.smartLists[kind] {
+        // Only render results computed for the tree on screen: node ids are reused
+        // between trees, so stale entries could index out of range.
+        if let tree = store.tree, store.smartListsAreCurrent, let result = store.smartLists[kind] {
             VStack(spacing: 0) {
                 header(result)
                 Divider()
@@ -52,7 +54,7 @@ struct SmartListView: View {
         List(selection: selectionBinding) {
             ForEach(result.groups, id: \.self) { group in
                 Section(group) {
-                    ForEach(result.entries(in: group), id: \.node) { entry in
+                    ForEach(result.entries(in: group).filter { tree.isLive($0.node) }, id: \.node) { entry in
                         row(entry, tree)
                             .selectionDisabled(entry.safety == .informational)
                             .contextMenu { rowMenu(entry) }

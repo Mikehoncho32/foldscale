@@ -326,13 +326,27 @@ extension FileTree {
 
     /// Pre-order walk over live descendants. `visit` returns whether to descend into
     /// that node (ignored for files), which lets callers prune bundles or subtrees.
+    /// Iterative (a resume stack of sibling links), so tree depth can't overflow
+    /// the stack and no per-directory arrays are allocated.
     public func forEachDescendant(of node: NodeID, _ visit: (NodeID) -> Bool) {
-        var child = firstChildIDs[Int(node)]
-        while child != FileTree.none {
-            if !removed.contains(child), visit(child), nodeFlags[Int(child)].contains(.directory) {
-                forEachDescendant(of: child, visit)
+        var resume: [NodeID] = []
+        var current = firstChildIDs[Int(node)]
+        while true {
+            if current == FileTree.none {
+                guard let next = resume.popLast() else { return }
+                current = next
+                continue
             }
-            child = nextSiblingIDs[Int(child)]
+            let sibling = nextSiblingIDs[Int(current)]
+            if !removed.contains(current), visit(current), nodeFlags[Int(current)].contains(.directory) {
+                let firstChild = firstChildIDs[Int(current)]
+                if firstChild != FileTree.none {
+                    resume.append(sibling)
+                    current = firstChild
+                    continue
+                }
+            }
+            current = sibling
         }
     }
 
@@ -544,6 +558,18 @@ extension FileTree: Codable {
         guard sameLength else { throw fail("inconsistent array lengths") }
         guard tree.rootID == FileTree.none || (tree.rootID >= 0 && Int(tree.rootID) < count) else {
             throw fail("root id out of range")
+        }
+        // Every link must be `.none` or a valid index, and parents must precede
+        // children (the pre-order invariant the traversals rely on).
+        for index in 0..<count {
+            let parent = tree.parentIDs[index]
+            guard parent == FileTree.none || (parent >= 0 && Int(parent) < index) else {
+                throw fail("parent link out of range or after its child")
+            }
+            for link in [tree.firstChildIDs[index], tree.nextSiblingIDs[index]]
+            where link != FileTree.none && (link < 0 || Int(link) >= count) {
+                throw fail("child/sibling link out of range")
+            }
         }
         let storageCount = tree.nameStorage.count
         for index in 0..<count

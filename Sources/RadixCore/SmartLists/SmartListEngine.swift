@@ -6,12 +6,15 @@ import Foundation
 /// per-list rules live in the `SmartListQuery` extensions (one file each).
 public enum SmartListEngine {
     /// Computes every list. Runs on a background thread; the tree is a value.
+    /// `isCancelled` is polled between lists so a superseded run stops early.
     public static func computeAll(
         in tree: FileTree, context: SmartListContext,
-        bundleInfo: BundleInfoProvider = DiskBundleInfoProvider(), now: Date = Date()
+        bundleInfo: BundleInfoProvider = DiskBundleInfoProvider(), now: Date = Date(),
+        isCancelled: () -> Bool = { false }
     ) -> [SmartListKind: SmartListResult] {
         var results: [SmartListKind: SmartListResult] = [:]
         for kind in SmartListKind.allCases {
+            if isCancelled() { return [:] }
             results[kind] = compute(kind, in: tree, context: context, bundleInfo: bundleInfo, now: now)
         }
         return results
@@ -47,6 +50,9 @@ struct SmartListQuery {
 
     /// Lower-cased names of installed apps ("slack"), built on first use.
     var installedAppNames: Set<String>?
+    /// Support-data folders already attributed to an app, so two apps sharing a
+    /// folder (or the same app installed twice) never count it twice.
+    var claimedSupportNodes: Set<FileTree.NodeID> = []
 
     init(tree: FileTree, context: SmartListContext, bundleInfo: BundleInfoProvider, now: Date) {
         self.tree = tree
@@ -110,37 +116,47 @@ struct SmartListQuery {
 
 // MARK: - Byte-level name matching (no String allocation per node)
 
+/// Name tests over the tree's raw UTF-8 bytes. Every candidate is precomputed as
+/// bytes once, so hot loops over millions of nodes allocate nothing.
 enum SmartListBytes {
-    static func set(_ extensions: [String]) -> Set<[UInt8]> { Set(extensions.map { Array($0.utf8) }) }
+    static func bytes(_ string: String) -> [UInt8] { Array(string.utf8) }
+    static func bytes(_ strings: [String]) -> [[UInt8]] { strings.map(bytes) }
 
     /// Case-insensitive match of the name's extension against lowercase candidates.
-    static func hasExtension(_ name: ArraySlice<UInt8>, in candidates: Set<[UInt8]>) -> Bool {
+    static func hasExtension(_ name: ArraySlice<UInt8>, in candidates: [[UInt8]]) -> Bool {
         guard let dot = name.lastIndex(of: 46), dot > name.startIndex else { return false }  // '.'
         let ext = name[(dot + 1)...]
         guard !ext.isEmpty, ext.count <= 5 else { return false }
-        var lowered: [UInt8] = []
-        lowered.reserveCapacity(ext.count)
-        for byte in ext { lowered.append(byte >= 65 && byte <= 90 ? byte + 32 : byte) }
-        return candidates.contains(lowered)
+        return candidates.contains { candidate in
+            candidate.count == ext.count && zip(candidate, ext).allSatisfy { $0 == lowercased($1) }
+        }
     }
 
-    static func hasSuffix(_ name: ArraySlice<UInt8>, _ suffix: String) -> Bool {
-        let bytes = Array(suffix.utf8)
-        guard name.count >= bytes.count else { return false }
-        return name.suffix(bytes.count).elementsEqual(bytes)
+    static func hasSuffix(_ name: ArraySlice<UInt8>, _ suffix: [UInt8]) -> Bool {
+        name.count >= suffix.count && name.suffix(suffix.count).elementsEqual(suffix)
     }
 
-    static func equals(_ name: ArraySlice<UInt8>, _ string: String) -> Bool {
-        name.elementsEqual(string.utf8)
+    static func hasAnySuffix(_ name: ArraySlice<UInt8>, _ suffixes: [[UInt8]]) -> Bool {
+        suffixes.contains { hasSuffix(name, $0) }
     }
 
-    static let libraryBundleSuffixes = [
+    static func equals(_ name: ArraySlice<UInt8>, _ bytes: [UInt8]) -> Bool {
+        name.elementsEqual(bytes)
+    }
+
+    static func equalsAny(_ name: ArraySlice<UInt8>, _ candidates: [[UInt8]]) -> Bool {
+        candidates.contains { name.elementsEqual($0) }
+    }
+
+    private static func lowercased(_ byte: UInt8) -> UInt8 { byte >= 65 && byte <= 90 ? byte + 32 : byte }
+
+    static let appSuffix = bytes(".app")
+    static let libraryBundleSuffixes = bytes([
         ".photoslibrary", ".imovielibrary", ".fcpbundle", ".logicx", ".musiclibrary", ".tvlibrary",
-    ]
+    ])
 
+    static func isAppBundle(_ name: ArraySlice<UInt8>) -> Bool { hasSuffix(name, appSuffix) }
     static func isLibraryBundle(_ name: ArraySlice<UInt8>) -> Bool {
-        libraryBundleSuffixes.contains { hasSuffix(name, $0) }
+        hasAnySuffix(name, libraryBundleSuffixes)
     }
-
-    static func isAppBundle(_ name: ArraySlice<UInt8>) -> Bool { hasSuffix(name, ".app") }
 }

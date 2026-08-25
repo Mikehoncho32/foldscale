@@ -5,7 +5,9 @@ import Foundation
 extension SmartListQuery {
     static let appFolders = ["/Applications", "/Applications/Utilities"]
     static let bundleInfoLimit = 200
-    static let gameFolderNames: Set<String> = ["Epic Games", "GOG Games"]
+    static let steamCommon = SmartListBytes.bytes("common")
+    static let steamApps = SmartListBytes.bytes("steamapps")
+    static let gameFolderNames = SmartListBytes.bytes(["Epic Games", "GOG Games"])
 
     /// Apps by real footprint (bundle + support data) and games from Steam/Epic/GOG
     /// folders or the App Store games category.
@@ -17,7 +19,7 @@ extension SmartListQuery {
 
         let ranked = apps.sorted { tree.totalAllocatedSize(of: $0) > tree.totalAllocatedSize(of: $1) }
         for (index, app) in ranked.enumerated() {
-            entries.append(appEntry(app, readBundleInfo: index < Self.bundleInfoLimit))
+            entries.append(appEntry(app, readBundleInfo: index < Self.bundleInfoLimit, games: games))
         }
         for game in games {
             entries.append(
@@ -28,8 +30,8 @@ extension SmartListQuery {
     }
 
     /// `.app` bundles directly in the app folders, or one folder down (Adobe/…),
-    /// never inside another bundle.
-    private func collectApps(seen: inout Set<FileTree.NodeID>) -> [FileTree.NodeID] {
+    /// never inside another bundle. Shared with the Downloads "already installed" tag.
+    func collectApps(seen: inout Set<FileTree.NodeID>) -> [FileTree.NodeID] {
         var apps: [FileTree.NodeID] = []
         for folder in Self.appFolders + [home("Applications")] {
             guard let root = node(at: folder) else { continue }
@@ -57,9 +59,9 @@ extension SmartListQuery {
             let name = tree.nameUTF8(of: node)
             if SmartListBytes.isAppBundle(name) || SmartListBytes.isLibraryBundle(name) { return false }
             let isSteam =
-                SmartListBytes.equals(name, "common")
-                && SmartListBytes.equals(tree.nameUTF8(of: tree.parent(of: node)), "steamapps")
-            guard isSteam || Self.gameFolderNames.contains(tree.name(of: node)) else { return true }
+                SmartListBytes.equals(name, Self.steamCommon)
+                && SmartListBytes.equals(tree.nameUTF8(of: tree.parent(of: node)), Self.steamApps)
+            guard isSteam || SmartListBytes.equalsAny(name, Self.gameFolderNames) else { return true }
             tree.forEachChild(of: node) { game in
                 if tree.isDirectory(game), seen.insert(game).inserted { games.append(game) }
             }
@@ -68,14 +70,17 @@ extension SmartListQuery {
         return games
     }
 
-    private func appEntry(_ app: FileTree.NodeID, readBundleInfo: Bool) -> SmartListEntry {
+    private mutating func appEntry(
+        _ app: FileTree.NodeID, readBundleInfo: Bool, games: [FileTree.NodeID]
+    ) -> SmartListEntry {
         var group = "Apps"
         var extra: Int64 = 0
         var notes = ["updated \(age(of: app))"]
         if readBundleInfo, let info = bundleInfo.info(forBundleAt: context.absolutePath(of: app, in: tree)) {
             if info.category?.lowercased().contains("games") == true { group = "Games" }
             extra = supportBytes(
-                name: info.name ?? Self.appName(tree.name(of: app)), identifier: info.identifier)
+                name: info.name ?? Self.appName(tree.name(of: app)), identifier: info.identifier, games: games
+            )
             if extra > 0 { notes.insert("+ \(Self.format(extra)) support data", at: 0) }
         }
         return SmartListEntry(
@@ -83,8 +88,10 @@ extension SmartListQuery {
             extraBytes: extra)
     }
 
-    /// Support data that belongs to an app, deduplicated by node.
-    private func supportBytes(name: String, identifier: String?) -> Int64 {
+    /// Support data that belongs to an app. Each folder is attributed to at most one
+    /// app, and games listed on their own (e.g. Steam's `steamapps/common/*` inside
+    /// Steam's support folder) are subtracted so nothing is counted twice.
+    private mutating func supportBytes(name: String, identifier: String?, games: [FileTree.NodeID]) -> Int64 {
         var candidates = [home("Library/Application Support/\(name)")]
         if let identifier {
             candidates += [
@@ -93,11 +100,15 @@ extension SmartListQuery {
                 home("Library/Caches/\(identifier)"),
             ]
         }
-        var seen = Set<FileTree.NodeID>()
-        return candidates.reduce(Int64(0)) { sum, path in
-            guard let node = node(at: path), seen.insert(node).inserted else { return sum }
-            return sum + tree.totalAllocatedSize(of: node)
+        var total: Int64 = 0
+        for path in candidates {
+            guard let node = node(at: path), claimedSupportNodes.insert(node).inserted else { continue }
+            total += tree.totalAllocatedSize(of: node)
+            for game in games where ancestors(of: game).contains(node) {
+                total -= tree.totalAllocatedSize(of: game)
+            }
         }
+        return max(0, total)
     }
 
     static func appName(_ bundleName: String) -> String {

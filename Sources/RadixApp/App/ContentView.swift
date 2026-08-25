@@ -46,7 +46,9 @@ struct ContentView: View {
             case .smartList, nil:
                 break
             }
-            if old?.isSmartList != new?.isSmartList { store.selection = [] }
+            // A different destination means a different set of rows on screen; never
+            // let a hidden selection arm the footer's Trash button.
+            if old != new { store.selection = [] }
         }
         .onChange(of: store.generation) { _, _ in
             // A swap/splice re-resolved the focus by path; keep the sidebar in step.

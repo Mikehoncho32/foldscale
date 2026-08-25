@@ -3,12 +3,11 @@ import Foundation
 // MARK: - Videos & recordings
 
 extension SmartListQuery {
-    static let videoExtensions = SmartListBytes.set([
+    static let videoExtensions = SmartListBytes.bytes([
         "mov", "mp4", "m4v", "mkv", "avi", "webm", "mts", "mxf", "braw", "r3d",
     ])
     static let videoMinimumBytes: Int64 = 100_000_000
-    static let recordingTokens = ["screen recording", "simulator screen recording", "zoom_"]
-    static let exportTokens = ["export", "final", "master", "render", "bounce"]
+    static let exportTokens: Set<String> = ["export", "final", "master", "render", "bounce"]
 
     /// Videos ≥ 100 MB anywhere (libraries and app bundles pruned), grouped into
     /// recordings, exports and clips.
@@ -34,20 +33,27 @@ extension SmartListQuery {
 
     private func videoGroup(of node: FileTree.NodeID, recordingFolders: Set<FileTree.NodeID>) -> String {
         let lower = tree.name(of: node).lowercased()
+        let tokens = Self.tokens(of: lower)
         let inRecordingFolder = ancestors(of: node).contains { recordingFolders.contains($0) }
         let looksRecorded =
-            Self.recordingTokens.contains { lower.contains($0) }
-            || (lower.contains("gmt") && lower.contains("recording"))
+            lower.contains("screen recording") || lower.contains("zoom_")
+            || (tokens.contains("gmt") && tokens.contains("recording"))
         if inRecordingFolder || looksRecorded { return "Recordings" }
-        if Self.exportTokens.contains(where: { lower.contains($0) }) || Self.hasVersionToken(lower) {
+        if tokens.contains(where: { Self.exportTokens.contains($0) }) || Self.hasVersionToken(tokens) {
             return "Exports"
         }
         return "Clips"
     }
 
-    /// "cut_v3.mov", "final v12" — a `v` followed by digits as its own token.
-    static func hasVersionToken(_ lower: String) -> Bool {
-        let tokens = lower.split { !$0.isLetter && !$0.isNumber }
-        return tokens.contains { $0.count >= 2 && $0.first == "v" && $0.dropFirst().allSatisfy(\.isNumber) }
+    static func tokens(of lower: String) -> [String] {
+        lower.split { !$0.isLetter && !$0.isNumber }.map(String.init)
+    }
+
+    /// "cut_v3.mov", "final v12" — a `v` + digits token that isn't the leading word
+    /// (so "V8 engine demo" doesn't count).
+    static func hasVersionToken(_ tokens: [String]) -> Bool {
+        tokens.dropFirst().contains {
+            $0.count >= 2 && $0.first == "v" && $0.dropFirst().allSatisfy(\.isNumber)
+        }
     }
 }

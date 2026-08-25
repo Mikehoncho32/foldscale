@@ -83,6 +83,13 @@ final class ScanStore {
     /// tree change. Absent until the first computation finishes.
     private(set) var smartLists: [SmartListKind: SmartListResult] = [:]
 
+    /// The `generation` the current `smartLists` were computed against. Views must
+    /// not index the tree with entries from another generation (ids are reused).
+    private(set) var smartListsGeneration = -1
+
+    /// Whether `smartLists` match the tree currently on screen.
+    var smartListsAreCurrent: Bool { smartListsGeneration == generation && !smartLists.isEmpty }
+
     private var scanTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
     private var subtreeTask: Task<Void, Never>?
@@ -158,6 +165,9 @@ final class ScanStore {
         scanTask?.cancel()
         refreshTask?.cancel()
         subtreeTask?.cancel()
+        smartListTask?.cancel()
+        smartLists = [:]
+        smartListsGeneration = -1
         isRefreshing = false
         rootURL = url
         tree = nil
@@ -246,8 +256,9 @@ final class ScanStore {
     private func swapTree(_ fresh: FileTree, denied: Int) {
         focusedNode = fresh.node(atPathComponents: focusPath) ?? fresh.rootID
         if focusedNode == fresh.rootID { focusPath = [] }
+        let previous = tree
         tree = fresh
-        cleanUpViewState(for: fresh)
+        remapViewState(from: previous, to: fresh)
         deniedDirectories = denied
         lastFullRefresh = Date()
         lastRefreshed = ["": Date()]
@@ -258,9 +269,26 @@ final class ScanStore {
         logIfRequested(fresh)
     }
 
-    private func cleanUpViewState(for tree: FileTree) {
-        selection = selection.filter { tree.isLive($0) }
-        if let infoNode, !tree.isLive(infoNode) { self.infoNode = nil }
+    /// Carries selection and the Get Info target across a tree change **by path**,
+    /// so they keep pointing at the same items (ids are reused between trees;
+    /// filtering by liveness alone could silently retarget them).
+    private func remapViewState(from previous: FileTree?, to tree: FileTree) {
+        guard let previous else {
+            selection = []
+            infoNode = nil
+            isConfirmingTrash = false
+            return
+        }
+        selection = Set(
+            selection.compactMap { node in
+                guard previous.isLive(node) else { return nil }
+                return tree.node(atPathComponents: previous.pathComponentsFromRoot(of: node))
+            })
+        if let infoNode {
+            self.infoNode =
+                previous.isLive(infoNode)
+                ? tree.node(atPathComponents: previous.pathComponentsFromRoot(of: infoNode)) : nil
+        }
         if selection.isEmpty { isConfirmingTrash = false }
     }
 
@@ -318,8 +346,9 @@ final class ScanStore {
         let new = current.replaceSubtree(at: old, with: subtree)
         guard new != old else { return }
         focusedNode = current.node(atPathComponents: focusPath) ?? current.rootID
+        let previous = tree
         tree = current
-        cleanUpViewState(for: current)
+        remapViewState(from: previous, to: current)
         lastRefreshed[Self.key(components)] = Date()
         bumpGeneration()
         schedulePersist()
@@ -487,10 +516,11 @@ final class ScanStore {
             try? await Task.sleep(nanoseconds: Self.smartListDebounceNanos)
             guard !Task.isCancelled else { return }
             let results = await Task.detached(priority: .utility) {
-                SmartListEngine.computeAll(in: tree, context: context)
+                SmartListEngine.computeAll(in: tree, context: context, isCancelled: { Task.isCancelled })
             }.value
-            guard !Task.isCancelled, let self, self.generation == expected else { return }
+            guard !Task.isCancelled, let self, self.generation == expected, !results.isEmpty else { return }
             self.smartLists = results
+            self.smartListsGeneration = expected
         }
     }
 

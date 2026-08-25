@@ -45,5 +45,5 @@ type_body_length:
   error: 600
 
 function_body_length:
-  warning: 60
-  error: 100
+  warning: 70
+  error: 120

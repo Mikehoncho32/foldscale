@@ -3,22 +3,32 @@ import Foundation
 // MARK: - Big projects
 
 extension SmartListQuery {
-    static let projectMarkerNames: Set<String> = [
+    /// A folder holding one of these is a code project.
+    static let codeMarkerNames = SmartListBytes.bytes([
         ".git", "package.json", "Package.swift", "Cargo.toml", "pyproject.toml", "go.mod",
-    ]
-    static let codeMarkerSuffixes = [".xcodeproj", ".xcworkspace", ".uproject"]
-    static let videoMarkerSuffixes = [".fcpbundle", ".imovielibrary", ".prproj", ".drp", ".aep"]
-    static let audioMarkerSuffixes = [".logicx", ".als"]
+    ])
+    static let codeMarkerSuffixes = SmartListBytes.bytes([".xcodeproj", ".xcworkspace", ".uproject"])
+    /// Small document files whose containing folder is the project.
+    static let videoMarkerSuffixes = SmartListBytes.bytes([".prproj", ".drp", ".aep"])
+    static let audioMarkerSuffixes = SmartListBytes.bytes([".als"])
+    /// Directory bundles that hold the project's media — the bundle *is* the project.
+    static let videoBundleSuffixes = SmartListBytes.bytes([".fcpbundle", ".imovielibrary"])
+    static let audioBundleSuffixes = SmartListBytes.bytes([".logicx"])
+    static let libraryName = SmartListBytes.bytes("Library")
     static let projectMinimumBytes: Int64 = 250_000_000
     static let looseProjectMinimumBytes: Int64 = 1_000_000_000
     static let looseProjectParents = ["Documents", "Desktop", "Projects", "Developer", "Movies", "Music"]
-    static let junkFolderNames: Set<String> = [
+    static let junkFolderNames = SmartListBytes.bytes([
         "node_modules", "Pods", ".build", "build", "dist", ".next", "target", "DerivedData",
         "Render Files", "Transcoded Media", "Media Cache", "Media Cache Files", "Peak Files", "Proxy",
-    ]
+    ])
 
-    /// Project roots under home (marker files, project bundles, or big loose folders
-    /// in the usual places), with last-touched and rebuildable-junk figures.
+    /// Project roots under home, with last-touched and rebuildable-junk figures:
+    /// project bundles (Final Cut, iMovie, Logic) are listed as themselves; folders
+    /// holding a marker file are projects — except the top-level home folders
+    /// (~/Movies, ~/Documents…), which are never promoted, so an iMovie library
+    /// sitting in ~/Movies doesn't swallow the whole folder; and big loose folders
+    /// in the usual places count when they hold no project bundles of their own.
     mutating func bigProjects() -> ([SmartListEntry], [String]) {
         let groups = ["Code", "Video", "Audio", "Other"]
         guard let homeNode = node(at: context.homePath) else { return ([], groups) }
@@ -30,14 +40,18 @@ extension SmartListQuery {
                 guard tree.isDirectory(child) else { return }
                 let name = tree.nameUTF8(of: child)
                 // At the top of home, skip ~/Library and dot-folders (46 = ".").
-                if depth == 0, SmartListBytes.equals(name, "Library") || name.first == 46 { return }
-                if let group = projectKind(of: child) {
+                if depth == 0, SmartListBytes.equals(name, Self.libraryName) || name.first == 46 { return }
+                if let group = Self.bundleProjectKind(name) {
                     if let entry = projectEntry(child, group: group) { entries.append(entry) }
-                } else if looseParents.contains(parent),
+                } else if SmartListBytes.isAppBundle(name) || SmartListBytes.isLibraryBundle(name) {
+                    return
+                } else if depth > 0, let group = markerProjectKind(of: child) {
+                    if let entry = projectEntry(child, group: group) { entries.append(entry) }
+                } else if looseParents.contains(parent), !containsProjectBundle(child),
                     tree.totalAllocatedSize(of: child) >= Self.looseProjectMinimumBytes
                 {
                     if let entry = projectEntry(child, group: "Other") { entries.append(entry) }
-                } else if !SmartListBytes.isLibraryBundle(name), !SmartListBytes.isAppBundle(name) {
+                } else {
                     visit(child, depth: depth + 1)
                 }
             }
@@ -54,23 +68,40 @@ extension SmartListQuery {
         return SmartListEntry(node: node, group: group, note: note, safety: .reviewFirst)
     }
 
-    /// The project kind if `node` is a project root (a folder holding a marker child).
-    private func projectKind(of node: FileTree.NodeID) -> String? {
+    private static func bundleProjectKind(_ name: ArraySlice<UInt8>) -> String? {
+        if SmartListBytes.hasAnySuffix(name, videoBundleSuffixes) { return "Video" }
+        if SmartListBytes.hasAnySuffix(name, audioBundleSuffixes) { return "Audio" }
+        return nil
+    }
+
+    /// The project kind if `node` holds a marker child (byte compares only).
+    private func markerProjectKind(of node: FileTree.NodeID) -> String? {
         var kind: String?
         tree.forEachChild(of: node) { child in
             guard kind == nil else { return }
             let name = tree.nameUTF8(of: child)
-            if Self.projectMarkerNames.contains(tree.name(of: child))
-                || Self.codeMarkerSuffixes.contains(where: { SmartListBytes.hasSuffix(name, $0) })
+            guard name.count <= 24 else { return }
+            if SmartListBytes.equalsAny(name, Self.codeMarkerNames)
+                || SmartListBytes.hasAnySuffix(name, Self.codeMarkerSuffixes)
             {
                 kind = "Code"
-            } else if Self.videoMarkerSuffixes.contains(where: { SmartListBytes.hasSuffix(name, $0) }) {
+            } else if SmartListBytes.hasAnySuffix(name, Self.videoMarkerSuffixes) {
                 kind = "Video"
-            } else if Self.audioMarkerSuffixes.contains(where: { SmartListBytes.hasSuffix(name, $0) }) {
+            } else if SmartListBytes.hasAnySuffix(name, Self.audioMarkerSuffixes) {
                 kind = "Audio"
             }
         }
         return kind
+    }
+
+    private func containsProjectBundle(_ node: FileTree.NodeID) -> Bool {
+        var found = false
+        tree.forEachChild(of: node) { child in
+            if !found, tree.isDirectory(child), Self.bundleProjectKind(tree.nameUTF8(of: child)) != nil {
+                found = true
+            }
+        }
+        return found
     }
 
     /// Latest **file** modification time excluding junk folders (folder mtimes
@@ -81,7 +112,7 @@ extension SmartListQuery {
         var junk: Int64 = 0
         tree.forEachDescendant(of: node) { child in
             if tree.isDirectory(child) {
-                if Self.junkFolderNames.contains(tree.name(of: child)) {
+                if SmartListBytes.equalsAny(tree.nameUTF8(of: child), Self.junkFolderNames) {
                     junk += tree.totalAllocatedSize(of: child)
                     return false
                 }
