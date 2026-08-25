@@ -8,6 +8,7 @@ import SwiftUI
 struct FooterView: View {
     let store: ScanStore
     let bridge: OutlineBridge
+    @State private var isShowingSpaceInfo = false
 
     var body: some View {
         VStack(spacing: 6) {
@@ -21,24 +22,36 @@ struct FooterView: View {
             }
             HStack(spacing: 8) {
                 Spacer()
-                Button {
-                    bridge.quickLook()
-                } label: {
-                    Label("Quick Look", systemImage: "eye")
+                Group {
+                    Button {
+                        bridge.quickLook()
+                    } label: {
+                        Label("Quick Look", systemImage: "eye")
+                    }
+                    Button {
+                        FileActions.reveal(store.urls(for: store.selection))
+                    } label: {
+                        Label("Reveal in Finder", systemImage: "arrow.up.forward.app")
+                    }
+                    Button {
+                        store.isConfirmingTrash = true
+                    } label: {
+                        Label("Move to Trash", systemImage: "trash")
+                    }
+                    .tint(.red)
                 }
+                .disabled(store.selection.isEmpty)
                 Button {
-                    FileActions.reveal(store.urls(for: store.selection))
+                    isShowingSpaceInfo.toggle()
                 } label: {
-                    Label("Reveal in Finder", systemImage: "arrow.up.forward.app")
+                    Image(systemName: "info.circle")
                 }
-                Button {
-                    store.isConfirmingTrash = true
-                } label: {
-                    Label("Move to Trash", systemImage: "trash")
+                .buttonStyle(.borderless)
+                .help("What do free, purgeable and used mean?")
+                .popover(isPresented: $isShowingSpaceInfo, arrowEdge: .bottom) {
+                    SpaceInfoPopover(volume: store.volume)
                 }
-                .tint(.red)
             }
-            .disabled(store.selection.isEmpty)
         }
         .font(.callout)
         .foregroundStyle(.secondary)
@@ -67,6 +80,49 @@ struct FooterView: View {
             text += " (+ \(DisplayFormat.bytes(volume.purgeable)) purgeable)"
         }
         return text
+    }
+}
+
+/// Explains the footer's space figures — and why Finder's "available" number is
+/// bigger: it counts purgeable space, which macOS reclaims on its own and which
+/// deleting files in Radix can't touch.
+private struct SpaceInfoPopover: View {
+    let volume: VolumeStats?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("About these numbers").font(.headline)
+            row(
+                "Used", volume.map { DisplayFormat.bytes($0.usedCapacity) },
+                "Everything on the drive right now — what the list above breaks down.")
+            row(
+                "Free", volume.map { DisplayFormat.bytes($0.availableCapacity) },
+                "Space you can write to this second.")
+            row(
+                "Purgeable", volume.map { DisplayFormat.bytes($0.purgeable) },
+                "Counted as used today, but macOS deletes it by itself when space runs low: "
+                    + "local Time Machine snapshots, photos and iCloud files that also live in the cloud, "
+                    + "and caches apps have marked disposable. You can't free it by deleting files here, "
+                    + "and you don't need to.")
+            Text(
+                "Finder's \"Available\" adds free and purgeable together, which is why its number is bigger."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .frame(width: 360)
+    }
+
+    private func row(_ label: String, _ value: String?, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(label).fontWeight(.semibold)
+                if let value { Text(value).monospacedDigit().foregroundStyle(.secondary) }
+            }
+            Text(detail).font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
