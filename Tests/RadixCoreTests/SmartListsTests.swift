@@ -5,6 +5,22 @@ import XCTest
 
 /// Tests for the smart-list queries and the scan-cache serialization.
 final class SmartListsTests: XCTestCase {
+    private var cacheDirectory: URL!
+
+    /// Point the cache at a throwaway directory so these tests never clobber the
+    /// user's real scan cache in Application Support.
+    override func setUp() {
+        super.setUp()
+        cacheDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("radix-cache-test-\(UUID().uuidString)")
+        ScanCache.directoryOverride = cacheDirectory
+    }
+
+    override func tearDown() {
+        ScanCache.directoryOverride = nil
+        try? FileManager.default.removeItem(at: cacheDirectory)
+        super.tearDown()
+    }
 
     // MARK: - Smart lists
 

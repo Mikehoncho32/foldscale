@@ -50,9 +50,17 @@ struct SidebarView: View {
                 // the sidebar stays compact on first load; expanding it reveals the
                 // primary folders (biggest first) and the "System & other" remainder.
                 let root = SidebarNode(
-                    kind: .folder(tree.rootID), tree: tree, otherBytes: store.unscannedVolumeBytes)
+                    kind: .folder(tree.rootID), tree: tree, path: "",
+                    otherBytes: store.unscannedVolumeBytes)
                 OutlineGroup([root], children: \.children) { node in
-                    if node.isOther {
+                    if let nodeID = node.nodeID {
+                        let isRoot = nodeID == tree.rootID
+                        treeRow(
+                            name: node.name(rootName: store.rootDisplayName), bytes: node.bytes,
+                            icon: isRoot ? driveIcon : "folder", bold: isRoot
+                        )
+                        .tag(SidebarItem.node(nodeID))
+                    } else {
                         treeRow(
                             name: node.name(rootName: ""), bytes: node.bytes, icon: "gearshape", dimmed: true
                         )
@@ -60,13 +68,6 @@ struct SidebarView: View {
                         .help(
                             "Space used by the sealed System volume, VM, snapshots and caches Radix doesn't scan"
                         )
-                    } else {
-                        let isRoot = node.id == tree.rootID
-                        treeRow(
-                            name: node.name(rootName: store.rootDisplayName), bytes: node.bytes,
-                            icon: isRoot ? driveIcon : "folder", bold: isRoot
-                        )
-                        .tag(SidebarItem.node(node.id))
                     }
                 }
             } else if store.isScanning {
@@ -75,6 +76,8 @@ struct SidebarView: View {
                     Text("Scanning \(store.rootDisplayName)…").foregroundStyle(.secondary)
                 }
             } else {
+                // No scan yet: the main pane shows the drive overview with its Scan
+                // button; this row mirrors it so the sidebar isn't empty.
                 bootVolumeButton
             }
         }

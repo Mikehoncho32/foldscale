@@ -2,17 +2,14 @@ import AppKit
 import RadixCore
 import SwiftUI
 
-/// The main window: a toolbar (open / rescan / scanning indicator), the Finder-style
-/// outline (once a scan finishes), and the footer. Scanning is non-modal — the tree
-/// area shows a live count while the background scan runs (handoff §4, rule 8).
+/// The main window: sidebar (drive tree, smart lists, places), a toolbar (open /
+/// refresh / updating indicator), the drive overview or the Finder-style outline,
+/// and the footer. Scanning is non-modal; background refreshes keep the current
+/// view and preserve the user's place (handoff §4, rule 8).
 struct ContentView: View {
     @State private var store = ScanStore()
     @State private var bridge = OutlineBridge()
     @State private var sidebar: SidebarItem?
-
-    /// The folder the main pane shows. Resolved every render against the current
-    /// tree, because node ids are reused across scans and a stale id would crash.
-    private var focusedNode: FileTree.NodeID { store.resolvedFocus(sidebar?.nodeID) }
 
     var body: some View {
         NavigationSplitView {
@@ -35,9 +32,21 @@ struct ContentView: View {
         .frame(minWidth: 640, minHeight: 480)
         .navigationTitle(store.rootDisplayName)
         .toolbar { toolbar }
-        .onChange(of: sidebar) { _, _ in store.selection = [] }
+        .onChange(of: sidebar) { old, new in
+            if let id = new?.nodeID { store.setFocus(id) }
+            if old?.isSmartList != new?.isSmartList { store.selection = [] }
+        }
+        .onChange(of: store.generation) { _, _ in
+            // A swap/splice re-resolved the focus by path; keep the sidebar in step.
+            if case .node(let current) = sidebar, current != store.focusedNode {
+                sidebar = .node(store.focusedNode)
+            }
+        }
         .onChange(of: store.scanSession, initial: true) { _, _ in
             if let tree = store.tree { sidebar = .node(tree.rootID) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            store.flushPersist()
         }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
@@ -52,6 +61,7 @@ struct ContentView: View {
                 store.openFolder(URL(fileURLWithPath: path))
             } else {
                 store.loadCachedScan()
+                if store.tree != nil, store.autoRefreshOnLaunch { store.refresh() }
             }
         }
         .sheet(
@@ -77,28 +87,34 @@ struct ContentView: View {
     }
 
     @ViewBuilder private var detailContent: some View {
-        if store.tree == nil {
-            placeholder
-        } else if let sidebar, sidebar.isSmartList {
-            SmartListView(store: store, item: sidebar)
+        if let tree = store.tree {
+            if let sidebar, sidebar.isSmartList {
+                SmartListView(store: store, item: sidebar)
+            } else {
+                let focus = store.focusedNode
+                if focus == tree.rootID {
+                    DriveOverviewHeader(store: store)
+                } else {
+                    BreadcrumbView(store: store, focus: focus) { sidebar = .node($0) }
+                }
+                Divider()
+                FileOutlineView(
+                    store: store, generation: store.generation, focus: focus, bridge: bridge,
+                    onOpenDirectory: { sidebar = .node($0) })
+            }
         } else {
-            let focus = focusedNode
-            BreadcrumbView(store: store, focus: focus) { sidebar = .node($0) }
-            Divider()
-            FileOutlineView(
-                store: store, generation: store.generation, focus: focus, bridge: bridge,
-                onOpenDirectory: { sidebar = .node($0) })
+            placeholder
         }
     }
 
     @ViewBuilder private var placeholder: some View {
-        VStack(spacing: 14) {
-            Image(systemName: store.isScanning ? "magnifyingglass" : "internaldrive")
-                .font(.system(size: 42, weight: .light))
-                .foregroundStyle(.secondary)
-            switch store.phase {
-            case .scanning:
-                Text("Scanning…").font(.title3)
+        switch store.phase {
+        case .scanning:
+            VStack(spacing: 14) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 42, weight: .light))
+                    .foregroundStyle(.secondary)
+                Text("Scanning \(store.rootDisplayName)…").font(.title3)
                 if let progress = store.progress {
                     Text(
                         "\(DisplayFormat.itemCount(Int64(progress.nodesScanned))) items · "
@@ -107,17 +123,20 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                 }
                 ProgressView().controlSize(.small)
-            case .failed(let message):
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding()
+        case .failed(let message):
+            VStack(spacing: 10) {
                 Text("Couldn't scan that folder").font(.title3)
                 Text(message).font(.footnote).foregroundStyle(.tertiary)
-            case .idle, .done:
-                Text("Open a folder to see what's using space").font(.title3)
-                Button("Open Folder…") { openFolder() }
-                    .controlSize(.large)
+                Button("Choose a Folder…") { openFolder() }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding()
+        case .idle, .done:
+            DriveOverviewView(store: store)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
     }
 
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
@@ -131,14 +150,26 @@ struct ContentView: View {
             Button {
                 store.rescan()
             } label: {
-                Label("Rescan", systemImage: "arrow.clockwise")
+                Label("Refresh", systemImage: "arrow.clockwise")
             }
             .keyboardShortcut("r", modifiers: .command)
-            .disabled(store.rootURL == nil || store.isScanning)
-            if store.isScanning {
-                ProgressView().controlSize(.small)
+            .disabled(store.rootURL == nil || store.isScanning || store.isRefreshing)
+            if store.isScanning || store.isRefreshing {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    if store.isRefreshing {
+                        Text(updatingText).font(.callout).foregroundStyle(.secondary)
+                    }
+                }
             }
         }
+    }
+
+    private var updatingText: String {
+        if let progress = store.refreshProgress {
+            return "Updating… \(DisplayFormat.itemCount(Int64(progress.nodesScanned))) items"
+        }
+        return "Updating…"
     }
 
     private func openFolder() {

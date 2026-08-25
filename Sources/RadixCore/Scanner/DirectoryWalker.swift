@@ -14,7 +14,9 @@ final class DirectoryWalker<Builder: TreeBuilder> {
 
     private var seen: Set<InodeKey> = []
     /// Devices a descent may enter (see `VolumePolicy`).
-    private var allowedDevices: Set<Int64> = []
+    private(set) var allowedDevices: Set<Int64> = []
+    /// Whether the run performed the `readdir` pre-count (false when a hint was given).
+    private(set) var didPrecount = false
     private var nodesScanned = 0
     private var bytesScanned: Int64 = 0
     /// Directories skipped because they couldn't be opened (permission denied) —
@@ -45,12 +47,29 @@ final class DirectoryWalker<Builder: TreeBuilder> {
         guard nodeKind(mode: rootStat.st_mode) == .directory else {
             throw ScanError.rootNotADirectory(rootPath)
         }
-        allowedDevices = VolumePolicy.allowedDevices(forRoot: rootPath, rootStat: rootStat)
+        // Device policy comes from the full scan's root when refreshing a subtree,
+        // and always includes this root's own device.
+        var policyPath = rootPath
+        var policyStat = rootStat
+        if let policyRoot = options.volumePolicyRoot, policyRoot != rootPath {
+            var candidate = stat()
+            if lstat(policyRoot, &candidate) == 0 {
+                policyPath = policyRoot
+                policyStat = candidate
+            }
+        }
+        allowedDevices = VolumePolicy.allowedDevices(forRoot: policyPath, rootStat: policyStat)
+        allowedDevices.insert(Int64(rootStat.st_dev))
         seen.insert(InodeKey(device: Int64(rootStat.st_dev), inode: UInt64(rootStat.st_ino)))
 
-        // Fast readdir-only pre-count so the builder can pre-size its storage and
-        // avoid ~2× geometric-growth overhead (ADR-0001). Also warms the cache.
-        builder.reserveCapacity(countNodes(atPath: rootPath) + 1)
+        // Pre-size the builder to avoid ~2× geometric-growth overhead (ADR-0001):
+        // from the caller's hint (a previous scan) or a fast readdir-only pre-count.
+        if let hint = options.capacityHint, hint > 0 {
+            builder.reserveCapacity(hint)
+        } else {
+            didPrecount = true
+            builder.reserveCapacity(countNodes(atPath: rootPath) + 1)
+        }
 
         let meta = NodeMeta.from(stat: rootStat, kind: .directory)
         builder.enterDirectory(name: (rootPath as NSString).lastPathComponent, meta: meta)
