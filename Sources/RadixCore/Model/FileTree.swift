@@ -304,6 +304,42 @@ extension FileTree {
     }
 }
 
+// MARK: - Non-allocating traversal (for whole-tree queries such as the smart lists)
+
+extension FileTree {
+    /// The node's name as raw UTF-8 bytes — a slice of the shared buffer, so
+    /// matching extensions or names over millions of nodes allocates nothing.
+    public func nameUTF8(of node: NodeID) -> ArraySlice<UInt8> {
+        let start = Int(nameOffsets[Int(node)])
+        let length = Int(nameLengths[Int(node)])
+        return nameStorage[start..<start + length]
+    }
+
+    /// Calls `body` for each live child, in insertion order, without building an array.
+    public func forEachChild(of node: NodeID, _ body: (NodeID) -> Void) {
+        var child = firstChildIDs[Int(node)]
+        while child != FileTree.none {
+            if !removed.contains(child) { body(child) }
+            child = nextSiblingIDs[Int(child)]
+        }
+    }
+
+    /// Pre-order walk over live descendants. `visit` returns whether to descend into
+    /// that node (ignored for files), which lets callers prune bundles or subtrees.
+    public func forEachDescendant(of node: NodeID, _ visit: (NodeID) -> Bool) {
+        var child = firstChildIDs[Int(node)]
+        while child != FileTree.none {
+            if !removed.contains(child), visit(child), nodeFlags[Int(child)].contains(.directory) {
+                forEachDescendant(of: child, visit)
+            }
+            child = nextSiblingIDs[Int(child)]
+        }
+    }
+
+    /// Whether the node is a directory (cheaper than reading `flags(of:)` in hot loops).
+    public func isDirectory(_ node: NodeID) -> Bool { nodeFlags[Int(node)].contains(.directory) }
+}
+
 /// Builds a ``FileTree`` (struct-of-arrays) from a depth-first scan stream.
 public struct FileTreeBuilder: TreeBuilder {
     private var parentIDs: [FileTree.NodeID] = []

@@ -43,7 +43,7 @@ struct ContentView: View {
                 } else {
                     store.openFolder(url)
                 }
-            case .largeFiles, .oldAndBig, nil:
+            case .smartList, nil:
                 break
             }
             if old?.isSmartList != new?.isSmartList { store.selection = [] }
@@ -104,8 +104,8 @@ struct ContentView: View {
 
     @ViewBuilder private var detailContent: some View {
         if store.tree != nil {
-            if let sidebar, sidebar.isSmartList {
-                SmartListView(store: store, item: sidebar)
+            if case .smartList(let kind) = sidebar {
+                SmartListView(store: store, kind: kind)
             } else {
                 // The drive overview is pinned on top no matter where you click; the
                 // path and that section's breakdown live beneath it.

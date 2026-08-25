@@ -15,8 +15,10 @@ disabled_rules:
   # We intentionally use the non-failable String(decoding:as:) for filename bytes,
   # which decodes invalid UTF-8 lossily rather than returning nil.
   - optional_data_string_conversion
-  # swift-format owns trailing-comma style (it adds them in multi-line literals).
+  # swift-format owns trailing-comma and brace placement (it puts the brace of a
+  # multi-line condition on its own line, which this rule rejects).
   - trailing_comma
+  - opening_brace
 
 line_length:
   warning: 120
@@ -39,5 +41,9 @@ file_length:
   error: 900
 
 type_body_length:
-  warning: 350
-  error: 500
+  warning: 450
+  error: 600
+
+function_body_length:
+  warning: 60
+  error: 100

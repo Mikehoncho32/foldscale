@@ -79,10 +79,16 @@ final class ScanStore {
     /// When the whole tree was last scanned (from the cache's timestamp on load).
     private(set) var lastFullRefresh: Date?
 
+    /// The task-oriented sidebar lists, recomputed in the background after every
+    /// tree change. Absent until the first computation finishes.
+    private(set) var smartLists: [SmartListKind: SmartListResult] = [:]
+
     private var scanTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
     private var subtreeTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
+    private var smartListTask: Task<Void, Never>?
+    private static let smartListDebounceNanos: UInt64 = 500_000_000
 
     private static let persistQueue = DispatchQueue(label: "io.github.mikehoncho32.radix.persist")
     private static let subtreeFreshness: TimeInterval = 60
@@ -194,7 +200,7 @@ final class ScanStore {
         phase = .done
         lastFullRefresh = Date()
         lastRefreshed = ["": Date()]
-        generation += 1
+        bumpGeneration()
         scanSession += 1
         refreshFDA()
         schedulePersist()
@@ -245,7 +251,7 @@ final class ScanStore {
         deniedDirectories = denied
         lastFullRefresh = Date()
         lastRefreshed = ["": Date()]
-        generation += 1
+        bumpGeneration()
         if let rootURL { volume = VolumeStats.forVolume(containing: rootURL) }
         refreshFDA()
         schedulePersist()
@@ -315,7 +321,7 @@ final class ScanStore {
         tree = current
         cleanUpViewState(for: current)
         lastRefreshed[Self.key(components)] = Date()
-        generation += 1
+        bumpGeneration()
         schedulePersist()
     }
 
@@ -432,7 +438,7 @@ final class ScanStore {
         tree = current
         selection = []
         infoNode = nil
-        generation += 1
+        bumpGeneration()
         schedulePersist()
     }
 
@@ -458,6 +464,36 @@ final class ScanStore {
         publishMutated(current)
     }
 
+    // MARK: - Generation & smart lists
+
+    /// Publishes a tree change to the UI and queues a smart-list recomputation.
+    private func bumpGeneration() {
+        generation += 1
+        scheduleSmartLists()
+    }
+
+    /// Recomputes every smart list off the main actor, debounced so bursts of
+    /// splices/trashes run it once. Results are dropped if the tree moved on.
+    private func scheduleSmartLists() {
+        smartListTask?.cancel()
+        guard let tree, let rootURL else {
+            smartLists = [:]
+            return
+        }
+        let expected = generation
+        let context = SmartListContext(
+            rootPath: rootURL.path, homePath: FileManager.default.homeDirectoryForCurrentUser.path)
+        smartListTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.smartListDebounceNanos)
+            guard !Task.isCancelled else { return }
+            let results = await Task.detached(priority: .utility) {
+                SmartListEngine.computeAll(in: tree, context: context)
+            }.value
+            guard !Task.isCancelled, let self, self.generation == expected else { return }
+            self.smartLists = results
+        }
+    }
+
     // MARK: - Persistence
 
     /// Loads the last persisted scan — no rescan — so a relaunch shows prior results
@@ -471,7 +507,7 @@ final class ScanStore {
         focusedNode = snapshot.tree.rootID
         lastFullRefresh = snapshot.savedAt
         lastRefreshed = [:]
-        generation += 1
+        bumpGeneration()
         scanSession += 1
         phase = .done
         volume = VolumeStats.forVolume(containing: root)

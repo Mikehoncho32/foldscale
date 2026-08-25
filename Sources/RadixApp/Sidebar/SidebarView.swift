@@ -20,12 +20,8 @@ struct SidebarView: View {
                 }
             }
 
-            Section("Smart Lists") {
-                Label(SidebarItem.largeFiles.title, systemImage: SidebarItem.largeFiles.systemImage)
-                    .tag(SidebarItem.largeFiles)
-                Label(SidebarItem.oldAndBig.title, systemImage: SidebarItem.oldAndBig.systemImage)
-                    .tag(SidebarItem.oldAndBig)
-            }
+            smartListSection("Clean Up", .cleanUp)
+            smartListSection("What's Here", .whatsHere)
 
             if !volumes.isEmpty {
                 Section("Drives") {
@@ -39,6 +35,28 @@ struct SidebarView: View {
         .frame(minWidth: 220)
         // Ids are reused across scans; re-keying the list resets expansion state.
         .id(store.scanSession)
+    }
+
+    // MARK: - Smart lists
+
+    /// A section of task-oriented lists. Rows appear only once computed and
+    /// non-empty, so nobody sees "Virtual machines · 0 B"; an empty section hides.
+    @ViewBuilder private func smartListSection(_ title: String, _ section: SmartListKind.Section) -> some View
+    {
+        let kinds = SmartListKind.allCases.filter { kind in
+            kind.section == section && (store.smartLists[kind]?.totalBytes ?? 0) > 0
+        }
+        if !kinds.isEmpty {
+            Section(title) {
+                ForEach(kinds, id: \.self) { kind in
+                    treeRow(
+                        name: kind.title, bytes: store.smartLists[kind]?.totalBytes ?? 0,
+                        icon: kind.systemImage
+                    )
+                    .tag(SidebarItem.smartList(kind))
+                }
+            }
+        }
     }
 
     // MARK: - Drive tree
