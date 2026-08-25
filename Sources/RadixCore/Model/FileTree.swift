@@ -102,6 +102,20 @@ extension FileTree {
     /// Whether the node has been trashed (hidden from the live tree).
     public func isRemoved(_ node: NodeID) -> Bool { removed.contains(node) }
 
+    /// Whether `node` is a valid, still-visible node: in range, not removed, and
+    /// under no removed ancestor (`remove` marks only the node itself). Use this
+    /// to validate ids held across trash/exclude — or across scans, since ids are
+    /// dense indices that a new tree reuses.
+    public func isLive(_ node: NodeID) -> Bool {
+        guard node >= 0, Int(node) < count else { return false }
+        var current = node
+        while current != FileTree.none {
+            if removed.contains(current) { return false }
+            current = parentIDs[Int(current)]
+        }
+        return true
+    }
+
     /// Last-modification time, seconds since the Unix epoch.
     public func modificationTime(of node: NodeID) -> Int64 { modificationTimes[Int(node)] }
 

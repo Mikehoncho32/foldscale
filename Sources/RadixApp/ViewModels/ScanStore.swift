@@ -25,6 +25,11 @@ final class ScanStore {
     /// (a value-type `FileTree` has no identity to diff on).
     private(set) var generation = 0
 
+    /// Bumped only when a **new tree** arrives (scan completion or cache load) —
+    /// not on trash/exclude, which keep node ids stable. The sidebar uses it to
+    /// reset expansion and re-select the root, since ids are reused across trees.
+    private(set) var scanSession = 0
+
     /// Directories the most recent scan couldn't read (permission denied).
     private(set) var deniedDirectories = 0
 
@@ -65,6 +70,42 @@ final class ScanStore {
 
     var isScanning: Bool { phase == .scanning }
 
+    // MARK: - Root identity & focus
+
+    /// Whether the scan root is a volume's mount point (e.g. "/" or "/Volumes/X").
+    var rootIsVolumeRoot: Bool {
+        guard let rootURL,
+            let volume = try? rootURL.resourceValues(forKeys: [.volumeURLKey]).volume
+        else { return false }
+        return volume.standardizedFileURL.path == rootURL.standardizedFileURL.path
+    }
+
+    /// A human name for the scan root: the volume name ("Macintosh HD") when the
+    /// root is a mount point, otherwise the folder name.
+    var rootDisplayName: String {
+        guard let rootURL else { return "Radix" }
+        let volumeName =
+            rootIsVolumeRoot ? try? rootURL.resourceValues(forKeys: [.volumeNameKey]).volumeName : nil
+        if let volumeName { return volumeName }
+        let name = rootURL.lastPathComponent
+        return name.isEmpty ? "/" : name
+    }
+
+    /// Resolves a possibly-stale focus id against the current tree: ids are dense
+    /// indices reused across scans, so anything not live falls back to the root.
+    func resolvedFocus(_ node: FileTree.NodeID?) -> FileTree.NodeID {
+        guard let tree else { return FileTree.none }
+        if let node, tree.isLive(node) { return node }
+        return tree.rootID
+    }
+
+    /// Space in use on the volume that the scan didn't cover (the sealed System
+    /// volume, VM, snapshots…). Only meaningful when scanning a volume root.
+    var unscannedVolumeBytes: Int64? {
+        guard rootIsVolumeRoot, let tree, let volume else { return nil }
+        return max(0, volume.usedCapacity - tree.totalAllocatedSize(of: tree.rootID))
+    }
+
     /// Total allocated bytes across the current selection (footer figure).
     var selectedTotalBytes: Int64 {
         guard let tree else { return 0 }
@@ -98,6 +139,7 @@ final class ScanStore {
                     case .completed(let tree, let denied):
                         self?.tree = tree
                         self?.generation += 1
+                        self?.scanSession += 1
                         self?.deniedDirectories = denied
                         self?.phase = .done
                         self?.refreshFDA()
@@ -222,6 +264,7 @@ final class ScanStore {
         tree = snapshot.tree
         rootURL = root
         generation += 1
+        scanSession += 1
         phase = .done
         volume = VolumeStats.forVolume(containing: root)
         refreshFDA()

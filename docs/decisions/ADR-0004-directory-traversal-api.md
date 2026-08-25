@@ -27,10 +27,13 @@ closing each directory before descending (bounding open file descriptors).
 
 - `fstatat(dirfd, name, &st, AT_SYMLINK_NOFOLLOW)` gives metadata without building
   full paths per file and without following symlinks (the `FTS_PHYSICAL` equivalent).
-- The cross-volume boundary is handled explicitly via `st_dev != rootDevice`
-  (`ScanOptions.stayOnStartVolume`) rather than `FTS_XDEV`, so the policy is visible
-  and testable — and the firmlink/whole-volume edge cases get a dedicated on-device
-  validation task instead of trusting an opaque flag.
+- The cross-volume boundary is handled explicitly via an allowed-device set
+  (`ScanOptions.stayOnStartVolume`, `VolumePolicy`) rather than `FTS_XDEV`, so the
+  policy is visible and testable. A scan rooted at `/` also admits the Data volume's
+  device, so firmlinked user folders (`/Users`, `/Applications`, `/Library`) are
+  included even on macOS releases where they report a different `st_dev` than `/`.
+  Validated on-device (macOS 26.5): those paths share `/`'s device here, so the
+  allowance is a no-op today and a safety net elsewhere.
 - Directory inodes are deduped by `(st_dev, st_ino)` (guarding against firmlink/cycle
   double-visits); hard-linked files are deduped the same way.
 

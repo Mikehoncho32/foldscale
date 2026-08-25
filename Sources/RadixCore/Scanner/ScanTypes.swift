@@ -4,8 +4,9 @@ import Foundation
 public struct ScanOptions: Sendable {
     /// When true, directories on a different device than the scan root are not
     /// descended into — the safe default that keeps a scan on its starting volume
-    /// instead of wandering into other mounts. (The firmlink / whole-volume
-    /// double-count edge cases are validated on-device; see the scanner ADR.)
+    /// instead of wandering into other mounts. A scan rooted at `/` also admits the
+    /// Data volume's device so firmlinked user folders are always included (see
+    /// `VolumePolicy` and ADR-0004).
     public var stayOnStartVolume: Bool
 
     /// Directory exclusion rules applied before descending.

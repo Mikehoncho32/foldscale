@@ -13,7 +13,8 @@ final class DirectoryWalker<Builder: TreeBuilder> {
     private let onProgress: (ScanProgress) -> Void
 
     private var seen: Set<InodeKey> = []
-    private var rootDevice: Int64 = 0
+    /// Devices a descent may enter (see `VolumePolicy`).
+    private var allowedDevices: Set<Int64> = []
     private var nodesScanned = 0
     private var bytesScanned: Int64 = 0
     /// Directories skipped because they couldn't be opened (permission denied) —
@@ -44,8 +45,8 @@ final class DirectoryWalker<Builder: TreeBuilder> {
         guard nodeKind(mode: rootStat.st_mode) == .directory else {
             throw ScanError.rootNotADirectory(rootPath)
         }
-        rootDevice = Int64(rootStat.st_dev)
-        seen.insert(InodeKey(device: rootDevice, inode: UInt64(rootStat.st_ino)))
+        allowedDevices = VolumePolicy.allowedDevices(forRoot: rootPath, rootStat: rootStat)
+        seen.insert(InodeKey(device: Int64(rootStat.st_dev), inode: UInt64(rootStat.st_ino)))
 
         // Fast readdir-only pre-count so the builder can pre-size its storage and
         // avoid ~2× geometric-growth overhead (ADR-0001). Also warms the cache.
@@ -111,7 +112,7 @@ final class DirectoryWalker<Builder: TreeBuilder> {
 
         let kind = nodeKind(mode: childStat.st_mode)
         if kind == .directory {
-            if options.stayOnStartVolume, Int64(childStat.st_dev) != rootDevice { return }
+            if options.stayOnStartVolume, !allowedDevices.contains(Int64(childStat.st_dev)) { return }
             let nameBytes = copyName(&dname, length: nameLen)
             let childPath = joinPath(path, String(decoding: nameBytes, as: UTF8.self))
             if options.exclusions.shouldSkipDirectory(path: childPath) { return }
