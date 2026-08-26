@@ -7,11 +7,11 @@
 I got tired of treemaps, so I built the disk analyzer I actually wanted: a Finder-like window where every folder shows how much space it's eating, sorted biggest-first at every level, with a size bar on each row that's relative to its parent folder.
 
 - "Free up space": pick how many GB you need, it pre-ticks the safest stuff (old installers, caches, node_modules/DerivedData…), you adjust, one confirmation.
-- Task lists with safety badges: Downloads, Caches & Trash, Developer junk, Apps & games, Big projects, Videos & recordings.
+- Task lists with safety badges: Downloads, Caches & Trash, Developer junk, App leftovers, Apps & games, Big projects, Videos & recordings, Media libraries, Phone backups, Virtual machines, Cloud files, What grew.
 - Trash only — never a permanent delete. Never opens your files. No telemetry (one optional daily update check).
 - macOS 14+, Apple silicon + Intel, notarized. `brew install --cask mikehoncho32/foldscale/foldscale` or the DMG from https://foldscale.com. MIT, source on GitHub.
 
-Happy to hear what's missing from the lists on your Mac — phone backups, VMs, cloud folders and "what grew since last week" are next.
+Happy to hear what's missing from the lists on your Mac.
 
 ---
 
