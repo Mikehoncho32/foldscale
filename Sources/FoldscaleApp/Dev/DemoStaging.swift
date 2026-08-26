@@ -8,7 +8,7 @@ import SwiftUI
 /// outline rows to expand (`FOLDSCALE_DEMO_EXPAND=1,3`, zero-based, in the focused folder).
 @MainActor
 enum DemoStaging {
-    static var isEnabled: Bool { ProcessInfo.processInfo.environment["FOLDSCALE_DEMO"] != nil }
+    nonisolated static var isEnabled: Bool { ProcessInfo.processInfo.environment["FOLDSCALE_DEMO"] != nil }
 
     static func apply(store: ScanStore, bridge: OutlineBridge, select: @escaping (SidebarItem?) -> Void) {
         let env = ProcessInfo.processInfo.environment

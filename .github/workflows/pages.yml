@@ -26,6 +26,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Validate appcast and make sure its newest download is live
+        run: |
+          xmllint --noout site/appcast.xml
+          url=$(grep -o 'url="[^"]*\.dmg"' site/appcast.xml | head -1 | sed 's/url="//;s/"$//')
+          [ -z "$url" ] && exit 0
+          for _ in $(seq 1 30); do curl -fsIL -o /dev/null "$url" && exit 0; sleep 20; done
+          echo "Newest appcast enclosure is not downloadable after 10 minutes: $url"; exit 1
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

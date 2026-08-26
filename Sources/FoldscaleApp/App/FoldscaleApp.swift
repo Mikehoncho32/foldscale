@@ -4,6 +4,9 @@ import SwiftUI
 /// dark mode works for free (handoff §4, rule 10).
 @main
 struct FoldscaleApp: App {
+    /// One updater for the app's lifetime (ADR-0005).
+    private let updater = UpdaterModel()
+
     init() { ScanStore.migrateLegacyPreferences() }
 
     var body: some Scene {
@@ -11,15 +14,21 @@ struct FoldscaleApp: App {
             ContentView()
         }
         .windowStyle(.titleBar)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updater: updater)
+            }
+        }
 
         Settings {
-            SettingsView()
+            SettingsView(updater: updater)
         }
     }
 }
 
 /// Preferences (⌘,).
 struct SettingsView: View {
+    let updater: UpdaterModel
     @AppStorage(ScanStore.autoRefreshDefaultsKey) private var autoRefreshOnLaunch = true
 
     var body: some View {
@@ -32,6 +41,11 @@ struct SettingsView: View {
             .font(.callout)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+
+            if updater.isEnabled {
+                Divider()
+                UpdateSettingsSection(updater: updater)
+            }
         }
         .padding(20)
         .frame(width: 440)

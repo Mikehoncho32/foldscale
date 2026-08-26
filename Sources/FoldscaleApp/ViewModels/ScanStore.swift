@@ -101,7 +101,7 @@ final class ScanStore {
     private static let subtreeFreshness: TimeInterval = 60
     private static let subtreeDebounceNanos: UInt64 = 400_000_000
     private static let persistDebounceNanos: UInt64 = 3_000_000_000
-    static let autoRefreshDefaultsKey = "autoRefreshOnLaunch"
+    nonisolated static let autoRefreshDefaultsKey = "autoRefreshOnLaunch"
 
     /// One-shot upgrade from Radix 1.1: preferences live in a per-bundle-id domain, so
     /// the rename would silently reset them. Copy what the old app stored, once.
