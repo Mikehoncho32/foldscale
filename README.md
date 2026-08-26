@@ -123,6 +123,7 @@ Environment variables the app honours, for headless work (screenshots, smoke tes
 | `FOLDSCALE_SCAN_PATH=/some/folder` | Scan that folder on launch instead of loading the cache |
 | `FOLDSCALE_LOG=1` | Print a `FOLDSCALE_SCAN_DONE …` line to stderr when a scan/refresh lands |
 | `FOLDSCALE_DEMO=1` | Load a hand-written, realistic demo drive (`Sources/FoldscaleApp/Dev/DemoTree.swift`) — never refreshes, never persists. Used for the website screenshots so no real files appear |
+| `FOLDSCALE_DUMP_LISTS=1` | Print every smart-list row (`kind \| group \| path \| name \| note \| safety \| size`) to stderr once the lists are computed — for checking a list against a real scan |
 | `FOLDSCALE_APPCAST_URL=http://localhost:8000/appcast.xml` | Use this update feed instead of foldscale.com and skip Sparkle's permission prompt (also turns the updater on in Debug builds) |
 | `FOLDSCALE_APPEARANCE=light\|dark`, `FOLDSCALE_WINDOW=1280x800`, `FOLDSCALE_DEMO_VIEW=home\|drive\|freeup\|<smart list>`, `FOLDSCALE_DEMO_EXPAND=1,3` | Demo-mode staging: appearance, window size, destination, outline rows to expand |
 

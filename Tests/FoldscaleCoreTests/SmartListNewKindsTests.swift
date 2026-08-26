@@ -317,4 +317,5 @@ final class SmartListNewKindsTests: XCTestCase {
             return BundleInfo(name: URL(fileURLWithPath: absolutePath).lastPathComponent)
         }
     }
+
 }

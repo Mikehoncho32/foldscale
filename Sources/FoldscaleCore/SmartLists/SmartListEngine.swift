@@ -33,17 +33,22 @@ public enum SmartListEngine {
         return run(kind, on: &query)
     }
 
+    // A dispatch table: one arm per list, nothing else.
+    // swiftlint:disable:next cyclomatic_complexity
     private static func run(_ kind: SmartListKind, on query: inout SmartListQuery) -> SmartListResult {
         let (entries, groups): ([SmartListEntry], [String])
         switch kind {
         case .downloads: (entries, groups) = query.downloads()
         case .cachesAndTrash: (entries, groups) = query.cachesAndTrash()
         case .developerJunk: (entries, groups) = query.developerJunk()
+        case .appLeftovers: (entries, groups) = query.appLeftovers()
         case .appsAndGames: (entries, groups) = query.appsAndGames()
         case .bigProjects: (entries, groups) = query.bigProjects()
         case .videos: (entries, groups) = query.videos()
+        case .mediaLibraries: (entries, groups) = query.mediaLibraries()
         case .phoneBackups: (entries, groups) = query.phoneBackups()
         case .virtualMachines: (entries, groups) = query.virtualMachines()
+        case .cloudFiles: (entries, groups) = query.cloudFiles()
         case .whatGrew: (entries, groups) = query.whatGrew()
         }
         let ranked = entries.sorted { query.weight($0) > query.weight($1) }
@@ -74,6 +79,8 @@ struct SmartListQuery {
     /// of bundles never turns list computation into a plist crawl.
     var bundleInfoCache: [FileTree.NodeID: BundleInfo?] = [:]
     static let bundleInfoReadLimit = 400
+    /// What's installed, as names / bundle ids / vendors (App leftovers), built on first use.
+    var installedIdentityCache: InstalledIdentity?
 
     init(
         tree: FileTree, context: SmartListContext, bundleInfo: BundleInfoProvider, now: Date,
