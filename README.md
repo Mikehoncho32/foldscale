@@ -39,7 +39,7 @@ separates this from "Finder with a size column."
 - **Sort by size, sticky at every depth.** Name / Items / Modified are there too, but size is where you land.
 - **Allocated size, not logical size** — what actually frees up when you delete.
 - **Cloud-aware.** iCloud/Dropbox online-only placeholders show their real local footprint with a badge; Foldscale never silently downloads them.
-- **Task-oriented lists** live in the sidebar as places you go — *Downloads*, *Caches & Trash*, *Developer junk*, *Apps & games*, *Big projects*, *Videos & recordings* — each with a safety badge.
+- **Task-oriented lists** live in the sidebar as places you go — *Downloads*, *Caches & Trash*, *Developer junk*, *App leftovers* to clean up; *Apps & games*, *Big projects*, *Videos & recordings*, *Media libraries*, *Phone backups*, *Virtual machines*, *Cloud files* and *What grew* to understand — each with a safety badge; empty ones hide.
 - **Free up space.** Say how much you need; Foldscale pre-ticks the safest candidates to cover it, you adjust, one confirmation.
 - **Always current.** The last scan opens instantly and refreshes in the background; the folder you click is re-checked on the spot.
 - **Safe by construction.** Every delete routes through the system Trash with a confirmation sheet — never a permanent delete. Protected system paths refuse to be trashed.

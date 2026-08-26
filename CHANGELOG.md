@@ -7,6 +7,14 @@ releasing. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Five more lists in the sidebar.** *App leftovers* (Clean Up): support data, containers and
+  group containers left behind by apps that aren't installed anymore — review first, nothing is
+  pre-ticked. *Phone backups*: iPhone and iPad backups by device name and date, archived copies
+  marked. *Virtual machines*: Parallels, VMware Fusion, UTM, VirtualBox and Tart machines, plus the
+  disks behind Docker, OrbStack, Lima and colima (with where to shrink them). *Media libraries*:
+  Photos, Music, TV, Podcasts, Books, iMovie, Lightroom and friends — informational, with where to
+  remove items. *Cloud files*: iCloud Drive, Dropbox, Google Drive, OneDrive and Box — what's on
+  this Mac versus online-only, per account. Empty lists stay hidden.
 - **What grew** (What's Here): folders that got at least 500 MB bigger since an earlier scan,
   grouped by last week / last month / longer, with the growth and the date it's measured from.
   Foldscale now keeps a small size history (`size-history.plist`, a few MB at most, thinned to
