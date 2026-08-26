@@ -76,7 +76,7 @@ extension SmartListQuery {
         var group = "Apps"
         var extra: Int64 = 0
         var notes = ["updated \(age(of: app))"]
-        if readBundleInfo, let info = bundleInfo.info(forBundleAt: context.absolutePath(of: app, in: tree)) {
+        if readBundleInfo, let info = bundleInfo(for: app) {
             if info.category?.lowercased().contains("games") == true { group = "Games" }
             extra = supportBytes(
                 name: info.name ?? Self.appName(tree.name(of: app)), identifier: info.identifier, games: games

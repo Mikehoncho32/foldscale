@@ -181,5 +181,19 @@ final class FreeUpPlannerTests: XCTestCase {
         XCTAssertEqual(result.totalBytes, 9 * gigabyte + 700 * megabyte)
         XCTAssertEqual(result.groups, ["Build output", "Xcode"])
     }
+
+    func testReviewFirstOrderPutsBackupsBeforeGamesAndVirtualMachinesLast() {
+        let order: [(SmartListKind, String)] = [
+            (.downloads, "Big and forgotten"), (.videos, "Recordings"), (.bigProjects, "Code"),
+            (.videos, "Clips"), (.phoneBackups, "iPhone & iPad backups"), (.appsAndGames, "Games"),
+            (.appsAndGames, "Apps"), (.virtualMachines, "Virtual machines"), (.developerJunk, "Xcode"),
+        ]
+        let priorities = order.map { FreeUpPlanner.priority($0.0, $0.1, .reviewFirst) }
+        XCTAssertEqual(priorities, priorities.sorted(), "\(priorities)")
+        XCTAssertLessThan(
+            FreeUpPlanner.priority(.phoneBackups, "iPhone & iPad backups", .reviewFirst),
+            FreeUpPlanner.priority(.appsAndGames, "Games", .reviewFirst))
+        XCTAssertEqual(FreeUpPlanner.priority(.virtualMachines, "Containers", .informational), 99)
+    }
 }
 // swiftlint:enable identifier_name

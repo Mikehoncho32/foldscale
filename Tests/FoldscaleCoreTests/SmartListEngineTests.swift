@@ -6,63 +6,26 @@ import XCTest
 /// Tests for the task-oriented smart lists, on synthetic trees rooted at "/" with
 /// the home folder at /Users/t. `now` is fixed so ages are deterministic.
 final class SmartListEngineTests: XCTestCase {
-    private let now = Date(timeIntervalSince1970: 1_800_000_000)
-    private let context = SmartListContext(rootPath: "/", homePath: "/Users/t")
-    private var day: Int64 { 86_400 }
-    private var epochNow: Int64 { Int64(1_800_000_000) }
-    private let gigabyte: Int64 = 1_000_000_000
-    private let megabyte: Int64 = 1_000_000
+    private let now = SmartListFixture.now
+    private let context = SmartListFixture.context
+    private let gigabyte = SmartListFixture.gigabyte
+    private let megabyte = SmartListFixture.megabyte
 
-    // MARK: - Fixture DSL
+    // The fixture DSL lives in SmartListFixture.swift; these keep the tests terse.
+    typealias Spec = SmartListFixture.Spec
+    typealias StubBundles = SmartListFixture.StubBundles
 
-    indirect enum Spec {
-        case dir(String, mtimeDaysAgo: Int64 = 0, [Spec])
-        case file(String, bytes: Int64, mtimeDaysAgo: Int64 = 0)
-    }
-
-    private func build(_ children: [Spec]) -> FileTree {
-        var builder = FileTreeBuilder()
-        builder.enterDirectory(name: "", meta: meta(directory: true, bytes: 0, mtime: epochNow))
-        for child in children { add(child, to: &builder) }
-        builder.leaveDirectory()
-        return builder.finish()
-    }
-
-    private func add(_ spec: Spec, to builder: inout FileTreeBuilder) {
-        switch spec {
-        case .dir(let name, let daysAgo, let children):
-            builder.enterDirectory(
-                name: name, meta: meta(directory: true, bytes: 0, mtime: epochNow - daysAgo * day))
-            for child in children { add(child, to: &builder) }
-            builder.leaveDirectory()
-        case .file(let name, let bytes, let daysAgo):
-            builder.addLeaf(
-                name: name, meta: meta(directory: false, bytes: bytes, mtime: epochNow - daysAgo * day))
-        }
-    }
-
-    private func meta(directory: Bool, bytes: Int64, mtime: Int64) -> NodeMeta {
-        NodeMeta(
-            allocatedSize: bytes, logicalSize: bytes, modificationTime: mtime,
-            flags: directory ? [.directory] : [], deviceID: 1, inode: 0, linkCount: 1)
-    }
-
-    private func home(_ children: [Spec]) -> Spec { .dir("Users", [.dir("t", children)]) }
+    private func build(_ children: [Spec]) -> FileTree { SmartListFixture.build(children) }
+    private func home(_ children: [Spec]) -> Spec { SmartListFixture.home(children) }
 
     private func names(_ result: SmartListResult, in tree: FileTree, group: String? = nil) -> [String] {
-        (group.map { result.entries(in: $0) } ?? result.entries).map { tree.name(of: $0.node) }
+        SmartListFixture.names(result, in: tree, group: group)
     }
 
     private func compute(
         _ kind: SmartListKind, _ tree: FileTree, bundles: [String: BundleInfo] = [:]
     ) -> SmartListResult {
-        SmartListEngine.compute(
-            kind, in: tree, context: context, bundleInfo: StubBundles(infos: bundles), now: now)
-    }
-
-    private struct StubBundles: BundleInfoProvider {
-        let infos: [String: BundleInfo]
-        func info(forBundleAt absolutePath: String) -> BundleInfo? { infos[absolutePath] }
+        SmartListFixture.compute(kind, tree, bundles: bundles)
     }
 
     // MARK: - Context

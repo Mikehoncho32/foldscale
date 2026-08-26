@@ -10,6 +10,8 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
     case appsAndGames
     case bigProjects
     case videos
+    case phoneBackups
+    case virtualMachines
 
     /// Which sidebar section the list belongs to.
     public enum Section: Sendable {
@@ -22,7 +24,7 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
     public var section: Section {
         switch self {
         case .downloads, .cachesAndTrash, .developerJunk: return .cleanUp
-        case .appsAndGames, .bigProjects, .videos: return .whatsHere
+        case .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines: return .whatsHere
         }
     }
 
@@ -34,6 +36,8 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
         case .appsAndGames: return "Apps & games"
         case .bigProjects: return "Big projects"
         case .videos: return "Videos & recordings"
+        case .phoneBackups: return "Phone backups"
+        case .virtualMachines: return "Virtual machines"
         }
     }
 
@@ -53,6 +57,12 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
                 "Your largest project folders, when you last touched them, and how much inside is rebuildable."
         case .videos:
             return "Large videos, with screen and meeting recordings grouped on top."
+        case .phoneBackups:
+            return
+                "iPhone and iPad backups kept on this Mac. Old ones can go; the next backup recreates them."
+        case .virtualMachines:
+            return
+                "Virtual machines and container disks — often the biggest single items on a developer's Mac."
         }
     }
 
@@ -64,6 +74,8 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
         case .appsAndGames: return "gamecontroller"
         case .bigProjects: return "folder.badge.gearshape"
         case .videos: return "film"
+        case .phoneBackups: return "iphone"
+        case .virtualMachines: return "pc"
         }
     }
 
@@ -71,7 +83,7 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
     public var safety: SmartListSafety {
         switch self {
         case .downloads, .cachesAndTrash, .developerJunk: return .safeToTrash
-        case .appsAndGames, .bigProjects, .videos: return .reviewFirst
+        case .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines: return .reviewFirst
         }
     }
 }
@@ -104,16 +116,23 @@ public struct SmartListEntry: Sendable, Equatable {
     public let safety: SmartListSafety
     /// Bytes counted with this entry but living elsewhere (an app's support data).
     public let extraBytes: Int64
+    /// A friendlier name than the folder's (a backup's device name); `nil` = the node's name.
+    public let displayName: String?
+    /// Ranks the row by this instead of its size (growth, for "What grew"); `nil` = size.
+    public let sortBytes: Int64?
 
     public init(
         node: FileTree.NodeID, group: String, note: String? = nil,
-        safety: SmartListSafety, extraBytes: Int64 = 0
+        safety: SmartListSafety, extraBytes: Int64 = 0, displayName: String? = nil,
+        sortBytes: Int64? = nil
     ) {
         self.node = node
         self.group = group
         self.note = note
         self.safety = safety
         self.extraBytes = extraBytes
+        self.displayName = displayName
+        self.sortBytes = sortBytes
     }
 }
 
@@ -122,16 +141,29 @@ public struct SmartListResult: Sendable {
     public let kind: SmartListKind
     public let entries: [SmartListEntry]
     public let groups: [String]
+    /// Reclaimable bytes: every row except informational ones (what Free up space can act on).
     public let totalBytes: Int64
+    /// Everything the list describes, informational rows included.
+    public let footprintBytes: Int64
 
-    public init(kind: SmartListKind, entries: [SmartListEntry], groups: [String], totalBytes: Int64) {
+    public init(
+        kind: SmartListKind, entries: [SmartListEntry], groups: [String], totalBytes: Int64,
+        footprintBytes: Int64? = nil
+    ) {
         self.kind = kind
         self.entries = entries
         self.groups = groups
         self.totalBytes = totalBytes
+        self.footprintBytes = footprintBytes ?? totalBytes
     }
 
     public var isEmpty: Bool { entries.isEmpty }
+
+    /// The number the sidebar and header show: what you could reclaim for Clean Up
+    /// lists, what's there for What's Here lists (which may be entirely informational).
+    public var displayBytes: Int64 {
+        kind.section == .whatsHere ? footprintBytes : totalBytes
+    }
 
     /// Entries in one group, preserving rank order.
     public func entries(in group: String) -> [SmartListEntry] {
@@ -195,25 +227,28 @@ public struct BundleInfo: Sendable, Equatable {
     }
 }
 
-/// Supplies bundle metadata for a bounded number of apps. Injectable so the engine
-/// is testable without real `.app` bundles on disk.
-public protocol BundleInfoProvider: Sendable {
-    func info(forBundleAt absolutePath: String) -> BundleInfo?
+/// What an iOS/iPadOS backup folder's `Info.plist` says about the device.
+public struct DeviceBackupInfo: Sendable, Equatable {
+    public var deviceName: String?
+    public var productName: String?
+    public var lastBackupDate: Date?
+
+    public init(deviceName: String? = nil, productName: String? = nil, lastBackupDate: Date? = nil) {
+        self.deviceName = deviceName
+        self.productName = productName
+        self.lastBackupDate = lastBackupDate
+    }
 }
 
-/// Reads `Contents/Info.plist` from disk.
-public struct DiskBundleInfoProvider: BundleInfoProvider {
-    public init() {}
+/// Supplies metadata read from a bounded number of small property lists (an app's
+/// `Info.plist`, a device backup's `Info.plist`). Injectable so the engine is
+/// testable without real bundles on disk; the on-disk implementation is
+/// `DiskBundleInfoProvider`, the only smart-list code allowed to touch files.
+public protocol BundleInfoProvider: Sendable {
+    func info(forBundleAt absolutePath: String) -> BundleInfo?
+    func backupInfo(forBackupAt absolutePath: String) -> DeviceBackupInfo?
+}
 
-    public func info(forBundleAt absolutePath: String) -> BundleInfo? {
-        let url = URL(fileURLWithPath: absolutePath).appendingPathComponent("Contents/Info.plist")
-        guard let data = try? Data(contentsOf: url),
-            let plist = try? PropertyListSerialization.propertyList(from: data, format: nil),
-            let dictionary = plist as? [String: Any]
-        else { return nil }
-        return BundleInfo(
-            name: dictionary["CFBundleName"] as? String,
-            identifier: dictionary["CFBundleIdentifier"] as? String,
-            category: dictionary["LSApplicationCategoryType"] as? String)
-    }
+extension BundleInfoProvider {
+    public func backupInfo(forBackupAt absolutePath: String) -> DeviceBackupInfo? { nil }
 }

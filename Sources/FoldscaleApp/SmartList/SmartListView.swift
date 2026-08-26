@@ -42,7 +42,7 @@ struct SmartListView: View {
                 Text(kind.blurb).font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
-            Text(DisplayFormat.bytes(result.totalBytes))
+            Text(DisplayFormat.bytes(result.displayBytes))
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
         }
@@ -76,7 +76,7 @@ struct SmartListView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
-                Text(name).lineLimit(1)
+                Text(entry.displayName ?? name).lineLimit(1)
                 HStack(spacing: 6) {
                     Text(location(of: entry.node)).lineLimit(1)
                     if let note = entry.note {

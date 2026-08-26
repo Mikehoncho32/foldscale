@@ -52,6 +52,26 @@ final class GuardrailTests: XCTestCase {
         }
     }
 
+    /// The smart lists reason about the scanned tree only. The single exception is
+    /// `DiskBundleInfoProvider`, which reads bounded `Info.plist`s; nothing else under
+    /// `SmartLists/` may touch file contents or the file system.
+    func testSmartListQueriesNeverReadFiles() throws {
+        let listsDir = Self.repoRoot.appendingPathComponent("Sources/FoldscaleCore/SmartLists")
+        let banned = [
+            "FileHandle", "Data(contentsOf", "String(contentsOf", "FileManager", "PropertyListSerialization",
+            "fopen(",
+        ]
+        let files = try Self.swiftFiles(under: listsDir)
+        XCTAssertFalse(files.isEmpty, "No SmartLists sources found — check #filePath anchoring")
+        for file in files where file.lastPathComponent != "DiskBundleInfoProvider.swift" {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            for token in banned where text.contains(token) {
+                XCTFail(
+                    "\(file.lastPathComponent) uses '\(token)'; only DiskBundleInfoProvider may read files.")
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     /// This file lives at <root>/Tests/FoldscaleCoreTests/GuardrailTests.swift.
