@@ -24,15 +24,22 @@ rm -rf "$dist"
 mkdir -p "$dist"
 
 xcodegen generate
-# With a Developer ID identity this produces a hardened-runtime, timestamped
-# signature ready for notarization; with "-" it is an ad-hoc local build.
+# Build unsigned: the local SPM package (RadixCore) is auto-signed by xcodebuild
+# and rejects a manually specified identity. The finished app is signed below.
 xcodebuild -project Radix.xcodeproj -scheme RadixApp -configuration Release \
     -destination 'generic/platform=macOS' -derivedDataPath "$derived" \
-    CODE_SIGN_IDENTITY="$identity" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES \
-    DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-}" OTHER_CODE_SIGN_FLAGS="--timestamp" build
+    CODE_SIGNING_ALLOWED=NO build
 
 mkdir -p "$staging"
 cp -R "$app" "$staging/Radix.app"
+
+if [ "$identity" != "-" ]; then
+    # Developer ID + hardened runtime + trusted timestamp: ready for notarization.
+    codesign --force --options runtime --timestamp --sign "$identity" "$staging/Radix.app"
+else
+    codesign --force --sign - "$staging/Radix.app"
+fi
+codesign --verify --deep --strict --verbose=1 "$staging/Radix.app"
 ln -s /Applications "$staging/Applications"
 
 hdiutil create -volname "Radix" -srcfolder "$staging" -ov -format UDZO "$dmg"
