@@ -19,7 +19,7 @@ final class GuardrailTests: XCTestCase {
             let text = try String(contentsOf: file, encoding: .utf8)
             for token in banned where Self.containsImport(text, token) {
                 XCTFail(
-                    "\(file.lastPathComponent) has banned UI import via '\(token)'. FoldscaleCore must be Foundation-only."
+                    "\(file.lastPathComponent) imports '\(token)'; FoldscaleCore must be Foundation-only."
                 )
             }
         }
