@@ -91,12 +91,12 @@ sign_ts() {  # $1 = path; rest = extra codesign flags
 
 for part in "${sparkle_parts[@]}"; do
     path="${part%%|*}"
-    extra=()
+    extra=()  # ${extra[@]+"${extra[@]}"} below: empty arrays trip set -u on bash 3.2
     [ "${part#*|}" = entitlements ] && extra=(--preserve-metadata=entitlements)
     if [ "$identity" != "-" ]; then
-        sign_ts "$path" -o runtime "${extra[@]}"
+        sign_ts "$path" -o runtime ${extra[@]+"${extra[@]}"}
     else
-        codesign -f -s - "${extra[@]}" "$path"
+        codesign -f -s - ${extra[@]+"${extra[@]}"} "$path"
     fi
 done
 if [ "$identity" != "-" ]; then
@@ -129,11 +129,6 @@ rm -rf "$staging"
 
 if [ "$identity" != "-" ]; then
     sign_ts "$dmg"
-    codesign --verify --verbose=1 "$dmg"
-fi
-        echo "DMG signature has no timestamp (attempt $attempt); retrying in 20 s" >&2
-        sleep 20
-    done
     codesign --verify --verbose=1 "$dmg"
 fi
 
