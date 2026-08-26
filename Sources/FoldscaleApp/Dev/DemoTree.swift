@@ -148,29 +148,7 @@ enum DemoTree {
         }
         library(&gen)
         developer(&gen)
-        gen.dir("Downloads", days: 1) { gen in
-            gen.file("raw-photos-June.zip", 3_000 * mb, days: 62)
-            gen.file("Xcode_16.4.xip", 3_200 * mb, days: 88)
-            gen.file("ubuntu-24.04-live-server-arm64.iso", 2_100 * mb, days: 140)
-            gen.file("lecture-recording.mp4", 1_900 * mb, days: 51)
-            gen.file("Docker.dmg", 620 * mb, days: 33)
-            gen.file("Blender-4.2-macos-arm64.dmg", 340 * mb, days: 120)
-            gen.file("Slack-4.39.dmg", 180 * mb, days: 200)
-            gen.file("Figma.zip", 120 * mb, days: 15)
-            gen.file("node-v22.6.0.pkg", 70 * mb, days: 24)
-            gen.file("IMG_4471.HEIC", 4 * mb, days: 3)
-            gen.file("Onboarding.pdf", 3 * mb, days: 9)
-            gen.file("Invoice-2026-07.pdf", 200 * kb, days: 20)
-        }
-        gen.dir("Pictures", days: 5) { gen in
-            gen.blob("Photos Library.photoslibrary", 7_400 * mb, files: 8_000, days: 1, ext: ".heic")
-            gen.dir("Lightroom", days: 40) { gen in
-                gen.blob(
-                    "Lightroom Catalog Previews.lrdata", 1_400 * mb, files: 3_000, days: 40, ext: ".lrprev")
-                gen.file("Lightroom Catalog.lrcat", 180 * mb, days: 40)
-                gen.blob("Raw", 800 * mb, files: 260, days: 40, ext: ".dng")
-            }
-        }
+        downloadsAndPictures(&gen)
         gen.dir("Documents", days: 2) { gen in
             gen.blob("Zoom", 2_300 * mb, files: 14, days: 25, ext: ".mp4")
             gen.blob("Thesis", 1_100 * mb, files: 180, days: 400, ext: ".pdf")
@@ -202,6 +180,32 @@ enum DemoTree {
         gen.file(".zsh_history", 400 * kb, days: 0)
     }
 
+    private static func downloadsAndPictures(_ gen: inout Generator) {
+        gen.dir("Downloads", days: 1) { gen in
+            gen.file("raw-photos-June.zip", 3_000 * mb, days: 62)
+            gen.file("Xcode_16.4.xip", 3_200 * mb, days: 88)
+            gen.file("ubuntu-24.04-live-server-arm64.iso", 2_100 * mb, days: 140)
+            gen.file("lecture-recording.mp4", 1_900 * mb, days: 51)
+            gen.file("Docker.dmg", 620 * mb, days: 33)
+            gen.file("Blender-4.2-macos-arm64.dmg", 340 * mb, days: 120)
+            gen.file("Slack-4.39.dmg", 180 * mb, days: 200)
+            gen.file("Figma.zip", 120 * mb, days: 15)
+            gen.file("node-v22.6.0.pkg", 70 * mb, days: 24)
+            gen.file("IMG_4471.HEIC", 4 * mb, days: 3)
+            gen.file("Onboarding.pdf", 3 * mb, days: 9)
+            gen.file("Invoice-2026-07.pdf", 200 * kb, days: 20)
+        }
+        gen.dir("Pictures", days: 5) { gen in
+            gen.blob("Photos Library.photoslibrary", 7_400 * mb, files: 8_000, days: 1, ext: ".heic")
+            gen.dir("Lightroom", days: 40) { gen in
+                gen.blob(
+                    "Lightroom Catalog Previews.lrdata", 1_400 * mb, files: 3_000, days: 40, ext: ".lrprev")
+                gen.file("Lightroom Catalog.lrcat", 180 * mb, days: 40)
+                gen.blob("Raw", 800 * mb, files: 260, days: 40, ext: ".dng")
+            }
+        }
+    }
+
     private static func library(_ gen: inout Generator) {
         gen.dir("Library", days: 0) { gen in
             gen.dir("Application Support", days: 0) { gen in
@@ -231,22 +235,7 @@ enum DemoTree {
                     }
                 }
             }
-            gen.dir("Mobile Documents", days: 0) { gen in
-                gen.cloudBlob(
-                    "com~apple~CloudDocs", localBytes: 3_200 * mb, files: 1_800, onlineOnly: 1_240,
-                    onlineOnlyBytes: 38 * gb, days: 0, ext: ".pdf")
-                gen.cloudBlob(
-                    "iCloud~com~apple~Keynote", localBytes: 40 * mb, files: 6, onlineOnly: 14,
-                    onlineOnlyBytes: 900 * mb, days: 30, ext: ".key")
-            }
-            gen.dir("CloudStorage", days: 0) { gen in
-                gen.cloudBlob(
-                    "Dropbox-Personal", localBytes: 2_100 * mb, files: 600, onlineOnly: 310,
-                    onlineOnlyBytes: 12 * gb, days: 2, ext: ".jpg")
-            }
-            gen.dir("Group Containers", days: 3) { gen in
-                gen.blob("243LU875E5.groups.com.apple.podcasts", 1_100 * mb, files: 40, days: 3, ext: ".mp3")
-            }
+            cloud(&gen)
             gen.dir("Caches", days: 0) { gen in
                 gen.blob("Homebrew", 2_000 * mb, files: 260, days: 8)
                 gen.blob("com.apple.dt.Xcode", 1_900 * mb, files: 3_000, days: 0)
@@ -266,6 +255,24 @@ enum DemoTree {
             containers(&gen)
             gen.blob("Mail", 900 * mb, files: 9_000, days: 0)
             gen.blob("Logs", 340 * mb, files: 700, days: 0)
+        }
+    }
+
+    /// iCloud Drive, a per-app iCloud container, Dropbox, and the Podcasts group container.
+    private static func cloud(_ gen: inout Generator) {
+        gen.dir("Mobile Documents", days: 0) { gen in
+            gen.cloudBlob(
+                "com~apple~CloudDocs", local: (3_200 * mb, 1_800), cloud: (1_240, 38 * gb), days: 0,
+                ext: ".pdf")
+            gen.cloudBlob(
+                "iCloud~com~apple~Keynote", local: (40 * mb, 6), cloud: (14, 900 * mb), days: 30, ext: ".key")
+        }
+        gen.dir("CloudStorage", days: 0) { gen in
+            gen.cloudBlob(
+                "Dropbox-Personal", local: (2_100 * mb, 600), cloud: (310, 12 * gb), days: 2, ext: ".jpg")
+        }
+        gen.dir("Group Containers", days: 3) { gen in
+            gen.blob("243LU875E5.groups.com.apple.podcasts", 1_100 * mb, files: 40, days: 3, ext: ".mp3")
         }
     }
 
@@ -359,12 +366,12 @@ private struct Generator {
     /// A synced folder: `files` local files plus `onlineOnly` placeholders that take
     /// no space here but `onlineOnlyBytes` in the cloud (dataless, like File Provider's).
     mutating func cloudBlob(
-        _ name: String, localBytes: Int64, files: Int, onlineOnly: Int, onlineOnlyBytes: Int64, days: Int,
+        _ name: String, local: (bytes: Int64, files: Int), cloud: (files: Int, bytes: Int64), days: Int,
         ext: String
     ) {
         dir(name, days: days) { gen in
-            gen.files(files, total: localBytes, days: days, ext: ext)
-            gen.placeholders(onlineOnly, total: onlineOnlyBytes, days: days, ext: ext)
+            gen.files(local.files, total: local.bytes, days: days, ext: ext)
+            gen.placeholders(cloud.files, total: cloud.bytes, days: days, ext: ext)
         }
     }
 

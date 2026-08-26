@@ -33,6 +33,8 @@ public enum SmartListEngine {
         return run(kind, on: &query)
     }
 
+    // A dispatch table: one arm per list, nothing else.
+    // swiftlint:disable:next cyclomatic_complexity
     private static func run(_ kind: SmartListKind, on query: inout SmartListQuery) -> SmartListResult {
         let (entries, groups): ([SmartListEntry], [String])
         switch kind {
