@@ -9,11 +9,12 @@ public enum SmartListEngine {
     /// `isCancelled` is polled between lists so a superseded run stops early.
     public static func computeAll(
         in tree: FileTree, context: SmartListContext,
-        bundleInfo: BundleInfoProvider = DiskBundleInfoProvider(), now: Date = Date(),
-        isCancelled: () -> Bool = { false }
+        bundleInfo: BundleInfoProvider = DiskBundleInfoProvider(), history: SizeHistory? = nil,
+        now: Date = Date(), isCancelled: () -> Bool = { false }
     ) -> [SmartListKind: SmartListResult] {
         // One query for every list, so lookups (installed apps, plist reads) are shared.
-        var query = SmartListQuery(tree: tree, context: context, bundleInfo: bundleInfo, now: now)
+        var query = SmartListQuery(
+            tree: tree, context: context, bundleInfo: bundleInfo, now: now, history: history)
         var results: [SmartListKind: SmartListResult] = [:]
         for kind in SmartListKind.allCases {
             if isCancelled() { return [:] }
@@ -24,9 +25,11 @@ public enum SmartListEngine {
 
     public static func compute(
         _ kind: SmartListKind, in tree: FileTree, context: SmartListContext,
-        bundleInfo: BundleInfoProvider = DiskBundleInfoProvider(), now: Date = Date()
+        bundleInfo: BundleInfoProvider = DiskBundleInfoProvider(), history: SizeHistory? = nil,
+        now: Date = Date()
     ) -> SmartListResult {
-        var query = SmartListQuery(tree: tree, context: context, bundleInfo: bundleInfo, now: now)
+        var query = SmartListQuery(
+            tree: tree, context: context, bundleInfo: bundleInfo, now: now, history: history)
         return run(kind, on: &query)
     }
 
@@ -41,6 +44,7 @@ public enum SmartListEngine {
         case .videos: (entries, groups) = query.videos()
         case .phoneBackups: (entries, groups) = query.phoneBackups()
         case .virtualMachines: (entries, groups) = query.virtualMachines()
+        case .whatGrew: (entries, groups) = query.whatGrew()
         }
         let ranked = entries.sorted { query.weight($0) > query.weight($1) }
         let total = ranked.filter { $0.safety != .informational }.reduce(Int64(0)) { $0 + query.weight($1) }
@@ -58,6 +62,8 @@ struct SmartListQuery {
     let context: SmartListContext
     let bundleInfo: BundleInfoProvider
     let now: Date
+    /// Earlier scans' directory sizes (ADR-0006); `nil` until one exists.
+    let history: SizeHistory?
 
     /// Lower-cased names of installed apps ("slack"), built on first use.
     var installedAppNames: Set<String>?
@@ -69,11 +75,15 @@ struct SmartListQuery {
     var bundleInfoCache: [FileTree.NodeID: BundleInfo?] = [:]
     static let bundleInfoReadLimit = 400
 
-    init(tree: FileTree, context: SmartListContext, bundleInfo: BundleInfoProvider, now: Date) {
+    init(
+        tree: FileTree, context: SmartListContext, bundleInfo: BundleInfoProvider, now: Date,
+        history: SizeHistory? = nil
+    ) {
         self.tree = tree
         self.context = context
         self.bundleInfo = bundleInfo
         self.now = now
+        self.history = history
     }
 
     /// An entry's ranking weight: its own size plus any attached bytes, unless the

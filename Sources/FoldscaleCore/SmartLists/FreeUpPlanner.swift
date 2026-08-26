@@ -139,7 +139,7 @@ public enum FreeUpPlanner {
         case .developerJunk: return group == "Build output" ? 0 : 1
         case .cachesAndTrash: return 2
         case .downloads: return group == "Installers & archives" ? 3 : 4
-        case .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines: return 5
+        case .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines, .whatGrew: return 5
         }
     }
 
@@ -153,7 +153,7 @@ public enum FreeUpPlanner {
         case .phoneBackups: return 5
         case .appsAndGames: return group == "Games" ? 6 : 7
         case .virtualMachines: return 8
-        case .cachesAndTrash, .developerJunk: return 9
+        case .cachesAndTrash, .developerJunk, .whatGrew: return 9
         }
     }
 }

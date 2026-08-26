@@ -6,6 +6,12 @@ releasing. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **What grew** (What's Here): folders that got at least 500 MB bigger since an earlier scan,
+  grouped by last week / last month / longer, with the growth and the date it's measured from.
+  Foldscale now keeps a small size history (`size-history.plist`, a few MB at most, thinned to
+  90 days) next to its scan cache; the list appears once you've used the app on two different days.
+
 ## [1.3.0] - 2026-08-26
 
 ### Added

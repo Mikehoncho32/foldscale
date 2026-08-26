@@ -31,6 +31,15 @@ public enum DisplayFormat {
         }
     }
 
+    /// A short month-and-day label ("Aug 19"), in the user's locale.
+    public static func shortDay(_ date: Date) -> String { shortDayFormatter.string(from: date) }
+
+    private static let shortDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("MMMd")
+        return formatter
+    }()
+
     private static let byteFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file

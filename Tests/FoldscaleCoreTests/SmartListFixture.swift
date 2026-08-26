@@ -59,11 +59,11 @@ enum SmartListFixture {
 
     static func compute(
         _ kind: SmartListKind, _ tree: FileTree, bundles: [String: BundleInfo] = [:],
-        backups: [String: DeviceBackupInfo] = [:]
+        backups: [String: DeviceBackupInfo] = [:], history: SizeHistory? = nil
     ) -> SmartListResult {
         SmartListEngine.compute(
             kind, in: tree, context: context, bundleInfo: StubBundles(infos: bundles, backups: backups),
-            now: now)
+            history: history, now: now)
     }
 
     struct StubBundles: BundleInfoProvider {

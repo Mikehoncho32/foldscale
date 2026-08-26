@@ -87,6 +87,9 @@ final class ScanStore {
     /// not index the tree with entries from another generation (ids are reused).
     private(set) var smartListsGeneration = -1
 
+    /// Earlier scans' directory sizes for "What grew" (ADR-0006); recorded on each save.
+    private(set) var sizeHistory: SizeHistory?
+
     /// Whether `smartLists` match the tree currently on screen.
     var smartListsAreCurrent: Bool { smartListsGeneration == generation && !smartLists.isEmpty }
 
@@ -230,6 +233,7 @@ final class ScanStore {
         phase = .done
         lastFullRefresh = Date()
         lastRefreshed = ["": Date()]
+        if let path = rootURL?.path { sizeHistory = SizeHistoryStore.load(rootPath: path) }
         bumpGeneration()
         scanSession += 1
         refreshFDA()
@@ -550,12 +554,14 @@ final class ScanStore {
             rootPath: rootURL.path, homePath: FileManager.default.homeDirectoryForCurrentUser.path)
         // The demo drive has no real bundles to read; canned metadata stands in.
         let provider: any BundleInfoProvider = isDemo ? DemoMetadataProvider() : DiskBundleInfoProvider()
+        let history = sizeHistory
         smartListTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: Self.smartListDebounceNanos)
             guard !Task.isCancelled else { return }
             let results = await Task.detached(priority: .utility) {
                 SmartListEngine.computeAll(
-                    in: tree, context: context, bundleInfo: provider, isCancelled: { Task.isCancelled })
+                    in: tree, context: context, bundleInfo: provider, history: history,
+                    isCancelled: { Task.isCancelled })
             }.value
             guard !Task.isCancelled, let self, self.generation == expected, !results.isEmpty else { return }
             self.smartLists = results
@@ -576,6 +582,7 @@ final class ScanStore {
         focusedNode = snapshot.tree.rootID
         lastFullRefresh = snapshot.savedAt
         lastRefreshed = [:]
+        sizeHistory = SizeHistoryStore.load(rootPath: snapshot.rootPath)
         bumpGeneration()
         scanSession += 1
         phase = .done
@@ -585,7 +592,8 @@ final class ScanStore {
 
     /// Publishes the demo drive (see `DemoTree`) as if it had just been scanned.
     func loadDemo() {
-        let demo = DemoTree.make(homePath: FileManager.default.homeDirectoryForCurrentUser.path)
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let demo = DemoTree.make(homePath: home)
         let root = URL(fileURLWithPath: "/")
         isDemo = true
         rootURL = root
@@ -594,6 +602,7 @@ final class ScanStore {
         focusedNode = demo.rootID
         lastFullRefresh = Date()
         lastRefreshed = ["": Date()]
+        sizeHistory = DemoTree.history(for: demo, homePath: home, now: Date())
         bumpGeneration()
         scanSession += 1
         phase = .done
@@ -613,7 +622,11 @@ final class ScanStore {
 
     private func persistNow() {
         guard !isDemo, let tree, let path = rootURL?.path else { return }
-        Self.persistQueue.async { try? ScanCache.save(tree: tree, rootPath: path, savedAt: Date()) }
+        Self.persistQueue.async { [weak self] in
+            try? ScanCache.save(tree: tree, rootPath: path, savedAt: Date())
+            let history = SizeHistoryStore.record(tree: tree, rootPath: path)
+            Task { @MainActor in self?.sizeHistory = history }
+        }
     }
 
     /// Writes any pending changes synchronously (call on app termination).

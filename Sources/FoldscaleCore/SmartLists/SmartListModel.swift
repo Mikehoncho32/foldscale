@@ -12,6 +12,7 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
     case videos
     case phoneBackups
     case virtualMachines
+    case whatGrew
 
     /// Which sidebar section the list belongs to.
     public enum Section: Sendable {
@@ -24,7 +25,8 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
     public var section: Section {
         switch self {
         case .downloads, .cachesAndTrash, .developerJunk: return .cleanUp
-        case .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines: return .whatsHere
+        case .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines, .whatGrew:
+            return .whatsHere
         }
     }
 
@@ -38,6 +40,7 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
         case .videos: return "Videos & recordings"
         case .phoneBackups: return "Phone backups"
         case .virtualMachines: return "Virtual machines"
+        case .whatGrew: return "What grew"
         }
     }
 
@@ -63,6 +66,8 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
         case .virtualMachines:
             return
                 "Virtual machines and container disks — often the biggest single items on a developer's Mac."
+        case .whatGrew:
+            return "Folders that got bigger since an earlier scan."
         }
     }
 
@@ -76,6 +81,7 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
         case .videos: return "film"
         case .phoneBackups: return "iphone"
         case .virtualMachines: return "pc"
+        case .whatGrew: return "chart.line.uptrend.xyaxis"
         }
     }
 
@@ -84,6 +90,7 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
         switch self {
         case .downloads, .cachesAndTrash, .developerJunk: return .safeToTrash
         case .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines: return .reviewFirst
+        case .whatGrew: return .informational
         }
     }
 }
