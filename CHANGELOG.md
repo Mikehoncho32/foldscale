@@ -6,6 +6,8 @@ releasing. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-26
+
 ### Added
 - **Auto-updates.** Foldscale can now keep itself current: on its second launch it asks whether to
   check foldscale.com once a day, and **Foldscale → Check for Updates…** works at any time. The
@@ -66,7 +68,8 @@ First release (as Radix, unsigned).
 - Smart lists (Large files, Old and big); sidebar Favorites + Volumes.
 - Remembers the last scan and reloads it instantly.
 
-[Unreleased]: https://github.com/Mikehoncho32/foldscale/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Mikehoncho32/foldscale/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.3.0
 [1.2.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.2.0
 [1.1.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.0.0

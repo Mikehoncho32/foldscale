@@ -30,7 +30,7 @@ preflight() {
     gh auth status >/dev/null
     security find-identity -v -p codesigning | grep -q "Developer ID Application" || { echo "no Developer ID identity" >&2; exit 1; }
     [ "$(git branch --show-current)" = main ] || [ "$(git branch --show-current)" = "$branch" ] || { echo "run from main" >&2; exit 1; }
-    [ -z "$(git status --porcelain)" ] || { echo "working tree not clean" >&2; exit 1; }
+    [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "working tree not clean" >&2; exit 1; }
     git fetch -q --tags origin
     [ -z "$(git tag -l "$tag")" ] && [ -z "$(git ls-remote --tags origin "$tag")" ] || { echo "$tag already exists" >&2; exit 1; }
     Scripts/changelog-section.sh Unreleased >/dev/null || { echo "write the release notes under [Unreleased] first" >&2; exit 1; }

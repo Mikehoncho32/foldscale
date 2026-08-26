@@ -56,31 +56,60 @@ done
 # refuses frameworks from another team, so re-sign every nested component
 # inside-out with OUR identity — never --deep (Downloader.xpc carries its own
 # entitlements). Order and flags per sparkle-project.org/documentation/sandboxing.
-sign_sparkle() {  # $1 = identity; remaining args = extra codesign flags
-    local id="$1"; shift
-    local fw="$staging/Foldscale.app/Contents/Frameworks/Sparkle.framework"
-    [ -d "$fw" ] || { echo "Sparkle.framework is not embedded — check project.yml" >&2; exit 1; }
-    codesign -f -s "$id" "$@" "$fw/Versions/B/XPCServices/Installer.xpc"
-    codesign -f -s "$id" "$@" --preserve-metadata=entitlements "$fw/Versions/B/XPCServices/Downloader.xpc"
-    codesign -f -s "$id" "$@" "$fw/Versions/B/Autoupdate"
-    codesign -f -s "$id" "$@" "$fw/Versions/B/Updater.app"
-    codesign -f -s "$id" "$@" "$fw"
+fw="$staging/Foldscale.app/Contents/Frameworks/Sparkle.framework"
+[ -d "$fw" ] || { echo "Sparkle.framework is not embedded — check project.yml" >&2; exit 1; }
+# Inside-out order; "entitlements" marks the one component whose entitlements must survive.
+sparkle_parts=(
+    "$fw/Versions/B/XPCServices/Installer.xpc"
+    "$fw/Versions/B/XPCServices/Downloader.xpc|entitlements"
+    "$fw/Versions/B/Autoupdate"
+    "$fw/Versions/B/Updater.app"
+    "$fw"
+)
+
+# One field of `codesign -d` output (TeamIdentifier, Timestamp…). sed drains the whole
+# stream, so this is safe under pipefail (grep -q would SIGPIPE codesign → status 141).
+sig_field() { codesign -dvv "$1" 2>&1 | sed -n "s/^$2=//p"; }
+team_of() { sig_field "$1" TeamIdentifier; }
+
+# Sign with a trusted timestamp, retrying: Apple's timestamp server sometimes refuses
+# (codesign exits 1) and sometimes answers nothing (codesign exits 0 without a
+# Timestamp field — which --verify does NOT catch). Notarization rejects either.
+sign_ts() {  # $1 = path; rest = extra codesign flags
+    local target="$1" attempt
+    shift
+    for attempt in 1 2 3 4 5; do
+        if codesign --force --timestamp --sign "$identity" "$@" "$target" \
+            && [ -n "$(sig_field "$target" Timestamp)" ]; then
+            return 0
+        fi
+        [ "$attempt" -lt 5 ] || { echo "no trusted timestamp on $target after 5 attempts" >&2; return 1; }
+        echo "no trusted timestamp on $target (attempt $attempt); retrying in 20 s" >&2
+        sleep 20
+    done
 }
 
+for part in "${sparkle_parts[@]}"; do
+    path="${part%%|*}"
+    extra=()  # ${extra[@]+"${extra[@]}"} below: empty arrays trip set -u on bash 3.2
+    [ "${part#*|}" = entitlements ] && extra=(--preserve-metadata=entitlements)
+    if [ "$identity" != "-" ]; then
+        sign_ts "$path" -o runtime ${extra[@]+"${extra[@]}"}
+    else
+        codesign -f -s - ${extra[@]+"${extra[@]}"} "$path"
+    fi
+done
 if [ "$identity" != "-" ]; then
     # Developer ID + hardened runtime + trusted timestamp: ready for notarization.
-    sign_sparkle "$identity" -o runtime --timestamp
-    codesign --force --options runtime --timestamp --sign "$identity" "$staging/Foldscale.app"
+    sign_ts "$staging/Foldscale.app" -o runtime
 else
-    sign_sparkle -
     codesign --force --sign - "$staging/Foldscale.app"
 fi
 codesign --verify --deep --strict --verbose=1 "$staging/Foldscale.app"
 
 # Library validation: the framework must carry the same TeamIdentifier as the app.
-team_of() { codesign -dv "$1" 2>&1 | sed -n 's/^TeamIdentifier=//p'; }
 app_team="$(team_of "$staging/Foldscale.app")"
-sparkle_team="$(team_of "$staging/Foldscale.app/Contents/Frameworks/Sparkle.framework")"
+sparkle_team="$(team_of "$fw")"
 if [ "$app_team" != "$sparkle_team" ]; then
     echo "TeamIdentifier mismatch: app=$app_team sparkle=$sparkle_team" >&2; exit 1
 fi
@@ -99,7 +128,7 @@ hdiutil create -volname "Foldscale" -srcfolder "$staging" -ov -format UDZO "$dmg
 rm -rf "$staging"
 
 if [ "$identity" != "-" ]; then
-    codesign --force --timestamp --sign "$identity" "$dmg"
+    sign_ts "$dmg"
     codesign --verify --verbose=1 "$dmg"
 fi
 
