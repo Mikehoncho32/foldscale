@@ -99,7 +99,14 @@ hdiutil create -volname "Foldscale" -srcfolder "$staging" -ov -format UDZO "$dmg
 rm -rf "$staging"
 
 if [ "$identity" != "-" ]; then
-    codesign --force --timestamp --sign "$identity" "$dmg"
+    # Apple's timestamp server occasionally returns nothing; codesign then signs without a
+    # timestamp and verification fails ("A timestamp was expected but was not found"). Retry.
+    for attempt in 1 2 3 4 5; do
+        codesign --force --timestamp --sign "$identity" "$dmg"
+        if codesign -dvv "$dmg" 2>&1 | grep -q '^Timestamp='; then break; fi
+        echo "DMG signature has no timestamp (attempt $attempt); retrying in 20 s" >&2
+        sleep 20
+    done
     codesign --verify --verbose=1 "$dmg"
 fi
 
