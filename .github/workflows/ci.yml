@@ -31,6 +31,11 @@ jobs:
         run: brew install xcodegen
       - name: Generate project
         run: xcodegen generate
+      - name: Cache Swift packages (Sparkle)
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('project.yml') }}
       - name: Build app
         run: |
           xcodebuild \
@@ -38,6 +43,7 @@ jobs:
             -scheme FoldscaleApp \
             -destination 'platform=macOS' \
             -configuration Debug \
+            -clonedSourcePackagesDirPath .spm \
             CODE_SIGNING_ALLOWED=NO \
             build
 

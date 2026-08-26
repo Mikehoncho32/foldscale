@@ -9,7 +9,7 @@
   <img alt="Platform" src="https://img.shields.io/badge/macOS-14%2B-black?logo=apple">
   <img alt="Swift" src="https://img.shields.io/badge/Swift-5.10%2B-orange?logo=swift">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
-  <em>&nbsp;· Status: v1.1 — signed and notarized releases</em>
+  <em>&nbsp;· Status: v1.3 — signed, notarized, self-updating</em>
 </p>
 
 <p align="center">
@@ -70,12 +70,23 @@ brew install --cask mikehoncho32/foldscale/foldscale
 Updates arrive with `brew upgrade`; `brew uninstall --cask --zap foldscale` also removes the scan cache
 and preferences. The cask lives in [Mikehoncho32/homebrew-foldscale](https://github.com/Mikehoncho32/homebrew-foldscale).
 
+### Updates
+
+Foldscale can keep itself current. On its second launch it asks whether to check foldscale.com for
+new versions once a day; you can also pick **Foldscale → Check for Updates…** at any time and change
+either behaviour in Settings. The check downloads a small signed feed and sends no identifiers.
+Updates are verified twice — Apple Developer ID and an EdDSA key built into the app — so a tampered
+download is refused. Versions before 1.3.0 have no updater: download once more, or `brew upgrade`.
+Homebrew users: the cask is marked `auto_updates`, so `brew upgrade` leaves in-app updates alone
+(`brew upgrade --greedy` forces it).
+
 ### Full Disk Access
 
 Foldscale reads file sizes across your disk, which macOS gates behind **Full Disk Access**. On first run
 Foldscale detects whether it has been granted and, if not, walks you to
-**System Settings → Privacy & Security → Full Disk Access**. Nothing leaves your machine — Foldscale has
-no network code and no telemetry.
+**System Settings → Privacy & Security → Full Disk Access**. Nothing about your files ever leaves your machine — Foldscale
+has no telemetry; its only network use is the optional daily update check described under
+[Updates](#updates).
 
 ### Why no sandbox?
 
@@ -111,6 +122,7 @@ Environment variables the app honours, for headless work (screenshots, smoke tes
 | `FOLDSCALE_SCAN_PATH=/some/folder` | Scan that folder on launch instead of loading the cache |
 | `FOLDSCALE_LOG=1` | Print a `FOLDSCALE_SCAN_DONE …` line to stderr when a scan/refresh lands |
 | `FOLDSCALE_DEMO=1` | Load a hand-written, realistic demo drive (`Sources/FoldscaleApp/Dev/DemoTree.swift`) — never refreshes, never persists. Used for the website screenshots so no real files appear |
+| `FOLDSCALE_APPCAST_URL=http://localhost:8000/appcast.xml` | Use this update feed instead of foldscale.com and skip Sparkle's permission prompt (also turns the updater on in Debug builds) |
 | `FOLDSCALE_APPEARANCE=light\|dark`, `FOLDSCALE_WINDOW=1280x800`, `FOLDSCALE_DEMO_VIEW=home\|drive\|freeup\|<smart list>`, `FOLDSCALE_DEMO_EXPAND=1,3` | Demo-mode staging: appearance, window size, destination, outline rows to expand |
 
 ## Architecture

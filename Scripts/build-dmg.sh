@@ -2,7 +2,8 @@
 #
 # Builds Foldscale in Release and packages it into a distributable DMG.
 #
-#   Scripts/build-dmg.sh [version]
+#   Scripts/build-dmg.sh            # version comes from project.yml (Scripts/version.sh)
+#   Scripts/build-dmg.sh 1.3.0      # optional: assert that project.yml says this version
 #
 # Unsigned/ad-hoc by default. For a shippable build set:
 #   CODE_SIGN_IDENTITY="Developer ID Application: Name (TEAMID)"   # sign app + DMG
@@ -18,7 +19,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 
-version="${1:-1.2.0}"
+version="$(Scripts/version.sh)"
+if [ -n "${1:-}" ] && [ "$1" != "$version" ]; then
+    echo "Requested $1 but project.yml says $version — run Scripts/set-version.sh $1 first" >&2
+    exit 1
+fi
 identity="${CODE_SIGN_IDENTITY:--}"  # "-" = ad-hoc
 profile="${NOTARY_PROFILE:-}"
 dist="dist"
@@ -40,13 +45,45 @@ xcodebuild -project Foldscale.xcodeproj -scheme FoldscaleApp -configuration Rele
 mkdir -p "$staging"
 cp -R "$app" "$staging/Foldscale.app"
 
+# Sparkle keys must have made it into the bundle (xcodegen `info:` block), or the
+# shipped app could never update.
+for key in SUFeedURL SUPublicEDKey; do
+    /usr/libexec/PlistBuddy -c "Print :$key" "$staging/Foldscale.app/Contents/Info.plist" >/dev/null \
+        || { echo "Info.plist is missing $key" >&2; exit 1; }
+done
+
+# Sparkle ships pre-signed by Sparkle's team. Hardened-runtime library validation
+# refuses frameworks from another team, so re-sign every nested component
+# inside-out with OUR identity — never --deep (Downloader.xpc carries its own
+# entitlements). Order and flags per sparkle-project.org/documentation/sandboxing.
+sign_sparkle() {  # $1 = identity; remaining args = extra codesign flags
+    local id="$1"; shift
+    local fw="$staging/Foldscale.app/Contents/Frameworks/Sparkle.framework"
+    [ -d "$fw" ] || { echo "Sparkle.framework is not embedded — check project.yml" >&2; exit 1; }
+    codesign -f -s "$id" "$@" "$fw/Versions/B/XPCServices/Installer.xpc"
+    codesign -f -s "$id" "$@" --preserve-metadata=entitlements "$fw/Versions/B/XPCServices/Downloader.xpc"
+    codesign -f -s "$id" "$@" "$fw/Versions/B/Autoupdate"
+    codesign -f -s "$id" "$@" "$fw/Versions/B/Updater.app"
+    codesign -f -s "$id" "$@" "$fw"
+}
+
 if [ "$identity" != "-" ]; then
     # Developer ID + hardened runtime + trusted timestamp: ready for notarization.
+    sign_sparkle "$identity" -o runtime --timestamp
     codesign --force --options runtime --timestamp --sign "$identity" "$staging/Foldscale.app"
 else
+    sign_sparkle -
     codesign --force --sign - "$staging/Foldscale.app"
 fi
 codesign --verify --deep --strict --verbose=1 "$staging/Foldscale.app"
+
+# Library validation: the framework must carry the same TeamIdentifier as the app.
+team_of() { codesign -dv "$1" 2>&1 | sed -n 's/^TeamIdentifier=//p'; }
+app_team="$(team_of "$staging/Foldscale.app")"
+sparkle_team="$(team_of "$staging/Foldscale.app/Contents/Frameworks/Sparkle.framework")"
+if [ "$app_team" != "$sparkle_team" ]; then
+    echo "TeamIdentifier mismatch: app=$app_team sparkle=$sparkle_team" >&2; exit 1
+fi
 
 if [ -n "$profile" ]; then
     echo "== notarizing app =="
@@ -54,6 +91,7 @@ if [ -n "$profile" ]; then
     xcrun notarytool submit "$dist/Foldscale-app.zip" --keychain-profile "$profile" --wait
     xcrun stapler staple "$staging/Foldscale.app"
     rm -f "$dist/Foldscale-app.zip"
+    spctl --assess --type execute --verbose=2 "$staging/Foldscale.app"  # expect: Notarized Developer ID
 fi
 
 ln -s /Applications "$staging/Applications"

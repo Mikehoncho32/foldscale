@@ -10,6 +10,12 @@ options:
 packages:
   FoldscaleCore:
     path: .
+  # Auto-updates (ADR-0005). Pinned exactly: Package.resolved lives inside the gitignored
+  # .xcodeproj, so `from:` would drift silently and the signing steps in
+  # Scripts/build-dmg.sh track a known framework layout.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: "2.9.6"
 
 settings:
   base:
@@ -25,9 +31,22 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - path: Sources/FoldscaleApp
+        excludes:
+          - Info.plist
+    # Sparkle 2 keys (ADR-0005). INFOPLIST_KEY_ can't inject custom keys, so xcodegen
+    # writes this small Info.plist and Xcode merges it with the generated one. The
+    # boolean/interval Sparkle keys are deliberately absent: Sparkle asks the user for
+    # permission on the second launch and uses its 24 h default interval.
+    info:
+      path: Sources/FoldscaleApp/Info.plist
+      properties:
+        SUFeedURL: https://foldscale.com/appcast.xml
+        SUPublicEDKey: 0u/UzBxsUnYWhF9MZxeE9p7eCPniauSKsPo7ZVBZqvI=
     dependencies:
       - package: FoldscaleCore
         product: FoldscaleCore
+      - package: Sparkle
+        product: Sparkle
     settings:
       base:
         PRODUCT_NAME: Foldscale

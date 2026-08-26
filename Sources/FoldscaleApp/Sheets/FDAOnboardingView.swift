@@ -51,7 +51,7 @@ struct FDAOnboardingView: View {
             Text(
                 "Foldscale reads file sizes across your disk. macOS keeps some folders — Mail, "
                     + "Messages, Time Machine, other apps' data — behind Full Disk Access, so parts "
-                    + "of a scan can come back incomplete without it. Foldscale has no network access."
+                    + "of a scan can come back incomplete without it. Nothing about your files leaves your Mac."
             )
             .fixedSize(horizontal: false, vertical: true)
 

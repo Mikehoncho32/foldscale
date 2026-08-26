@@ -161,7 +161,7 @@
       <div class="card">
         <div class="glyph"><svg viewBox="0 0 24 24"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"/><path d="M8 12l3 3 5-6"/></svg></div>
         <h3>Private and open</h3>
-        <p>No network access, no analytics, no account. Signed and notarized by Apple, MIT-licensed, and every line is on GitHub.</p>
+        <p>No analytics, no account, no telemetry. The only connection it makes is an optional once-a-day check with foldscale.com for a new version — no identifiers sent, off with one switch in Settings. Signed and notarized by Apple, MIT-licensed, and every line is on GitHub.</p>
       </div>
     </div>
   </section>
@@ -208,7 +208,7 @@
     <div class="faq" style="margin-top:28px">
       <div><h3>Why does it ask for Full Disk Access?</h3><p>macOS hides parts of your own home folder (Mail, Messages, Safari data…) from apps unless you allow it. Without it, Foldscale still works — those folders just show as “not readable”.</p></div>
       <div><h3>Can it delete something I need?</h3><p>It can only move items to the Trash, and it refuses to touch system folders. Nothing is gone until you empty the Trash yourself.</p></div>
-      <div><h3>Does it send anything anywhere?</h3><p>No. Foldscale has no networking code at all. Scans are stored in a local cache in your Application Support folder and nowhere else.</p></div>
+      <div><h3>Does it send anything anywhere?</h3><p>Only an update check. With your permission, Foldscale fetches a small file from foldscale.com once a day to see whether a newer version is out — no identifiers, no usage data, nothing about your files. Turn it off in Settings and check manually from the Foldscale menu instead. Scans are stored in a local cache in your Application Support folder and nowhere else.</p></div>
       <div><h3>Will it download my iCloud files?</h3><p>No. Online-only placeholders show their real local footprint with a cloud badge; Foldscale reads metadata only and never opens file contents.</p></div>
       <div><h3>Wasn't this called Radix?</h3><p>Yes, until 1.2.0. An unrelated Mac disk analyzer already used that name, so we renamed rather than share it. Same app, same code — only the name changed.</p></div>
       <div><h3>Is it really free?</h3><p>Yes — MIT-licensed, source on GitHub. If it helped you, a star on the repo helps others find it.</p></div>
