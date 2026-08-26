@@ -56,5 +56,11 @@ jobs:
         run: brew install swiftlint
       - name: SwiftLint
         run: swiftlint --strict
+      - name: Version consistency
+        run: Scripts/check-version.sh
+      - name: Appcast script self-test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: Tests/Scripts/appcast-test.sh
       - name: swift-format lint
         run: swift format lint --strict --recursive Sources Tests
