@@ -12,8 +12,7 @@
   <em>&nbsp;· Status: v1.1 — signed and notarized releases</em>
 </p>
 
-<!-- TODO: replace with a real screenshot once the outline view lands (Milestone 2). -->
-<p align="center"><em>Screenshot coming with Milestone 2.</em></p>
+<!-- TODO: add a screenshot of the drive view + Free up space. -->
 
 ---
 
@@ -31,7 +30,9 @@ separates this from "Finder with a size column."
 - **Sort by size, sticky at every depth.** Name / Items / Modified are there too, but size is where you land.
 - **Allocated size, not logical size** — what actually frees up when you delete.
 - **Cloud-aware.** iCloud/Dropbox online-only placeholders show their real local footprint with a badge; Radix never silently downloads them.
-- **Smart lists** live in the sidebar as places you go: *Large files*, *Old and big*.
+- **Task-oriented lists** live in the sidebar as places you go — *Downloads*, *Caches & Trash*, *Developer junk*, *Apps & games*, *Big projects*, *Videos & recordings* — each with a safety badge.
+- **Free up space.** Say how much you need; Radix pre-ticks the safest candidates to cover it, you adjust, one confirmation.
+- **Always current.** The last scan opens instantly and refreshes in the background; the folder you click is re-checked on the spot.
 - **Safe by construction.** Every delete routes through the system Trash with a confirmation sheet — never a permanent delete. Protected system paths refuse to be trashed.
 
 ## Requirements
