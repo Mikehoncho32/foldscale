@@ -6,6 +6,7 @@ import Foundation
 public enum SmartListKind: String, CaseIterable, Sendable, Codable {
     case downloads
     case cachesAndTrash
+    case developerJunk
     case appsAndGames
     case bigProjects
     case videos
@@ -20,7 +21,7 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
 
     public var section: Section {
         switch self {
-        case .downloads, .cachesAndTrash: return .cleanUp
+        case .downloads, .cachesAndTrash, .developerJunk: return .cleanUp
         case .appsAndGames, .bigProjects, .videos: return .whatsHere
         }
     }
@@ -29,6 +30,7 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
         switch self {
         case .downloads: return "Downloads"
         case .cachesAndTrash: return "Caches & Trash"
+        case .developerJunk: return "Developer junk"
         case .appsAndGames: return "Apps & games"
         case .bigProjects: return "Big projects"
         case .videos: return "Videos & recordings"
@@ -42,6 +44,8 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
             return "Installers, archives and big files you downloaded and forgot about."
         case .cachesAndTrash:
             return "Space macOS and your apps rebuild on their own — safe to clear."
+        case .developerJunk:
+            return "Build output and tool caches that come back on the next build — safe to clear."
         case .appsAndGames:
             return "Apps and games by their real footprint, including their support data."
         case .bigProjects:
@@ -56,6 +60,7 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
         switch self {
         case .downloads: return "arrow.down.circle"
         case .cachesAndTrash: return "trash"
+        case .developerJunk: return "hammer"
         case .appsAndGames: return "gamecontroller"
         case .bigProjects: return "folder.badge.gearshape"
         case .videos: return "film"
@@ -65,7 +70,7 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
     /// The list's default safety, used for its badge.
     public var safety: SmartListSafety {
         switch self {
-        case .downloads, .cachesAndTrash: return .safeToTrash
+        case .downloads, .cachesAndTrash, .developerJunk: return .safeToTrash
         case .appsAndGames, .bigProjects, .videos: return .reviewFirst
         }
     }

@@ -31,9 +31,16 @@ extension SmartListQuery {
     /// in the usual places count when they hold no project bundles of their own.
     mutating func bigProjects() -> ([SmartListEntry], [String]) {
         let groups = ["Code", "Video", "Audio", "Other"]
-        guard let homeNode = node(at: context.homePath) else { return ([], groups) }
+        let entries = projectRoots().compactMap { projectEntry($0.node, group: $0.group) }
+        return (entries, groups)
+    }
+
+    /// Every project root under home with its kind. Shared by Big projects and
+    /// Developer junk (which looks for build folders inside these roots).
+    func projectRoots() -> [(node: FileTree.NodeID, group: String)] {
+        guard let homeNode = node(at: context.homePath) else { return [] }
         let looseParents = Set(Self.looseProjectParents.compactMap { node(at: home($0)) })
-        var entries: [SmartListEntry] = []
+        var roots: [(node: FileTree.NodeID, group: String)] = []
 
         func visit(_ parent: FileTree.NodeID, depth: Int) {
             tree.forEachChild(of: parent) { child in
@@ -42,22 +49,22 @@ extension SmartListQuery {
                 // At the top of home, skip ~/Library and dot-folders (46 = ".").
                 if depth == 0, SmartListBytes.equals(name, Self.libraryName) || name.first == 46 { return }
                 if let group = Self.bundleProjectKind(name) {
-                    if let entry = projectEntry(child, group: group) { entries.append(entry) }
+                    roots.append((child, group))
                 } else if SmartListBytes.isAppBundle(name) || SmartListBytes.isLibraryBundle(name) {
                     return
                 } else if depth > 0, let group = markerProjectKind(of: child) {
-                    if let entry = projectEntry(child, group: group) { entries.append(entry) }
+                    roots.append((child, group))
                 } else if looseParents.contains(parent), !containsProjectBundle(child),
                     tree.totalAllocatedSize(of: child) >= Self.looseProjectMinimumBytes
                 {
-                    if let entry = projectEntry(child, group: "Other") { entries.append(entry) }
+                    roots.append((child, "Other"))
                 } else {
                     visit(child, depth: depth + 1)
                 }
             }
         }
         visit(homeNode, depth: 0)
-        return (entries, groups)
+        return roots
     }
 
     private func projectEntry(_ node: FileTree.NodeID, group: String) -> SmartListEntry? {

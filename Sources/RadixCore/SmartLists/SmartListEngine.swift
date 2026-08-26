@@ -29,6 +29,7 @@ public enum SmartListEngine {
         switch kind {
         case .downloads: (entries, groups) = query.downloads()
         case .cachesAndTrash: (entries, groups) = query.cachesAndTrash()
+        case .developerJunk: (entries, groups) = query.developerJunk()
         case .appsAndGames: (entries, groups) = query.appsAndGames()
         case .bigProjects: (entries, groups) = query.bigProjects()
         case .videos: (entries, groups) = query.videos()

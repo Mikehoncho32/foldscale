@@ -93,6 +93,8 @@ private struct VolumeCard: View {
 /// with the figures beneath.
 struct DriveOverviewHeader: View {
     let store: ScanStore
+    /// Opens the "Free up space" flow (shown as a button beside the figures).
+    var onFreeUpSpace: (() -> Void)?
 
     var body: some View {
         if let tree = store.tree {
@@ -100,13 +102,19 @@ struct DriveOverviewHeader: View {
             let other = store.unscannedVolumeBytes ?? 0
             let free = store.volume?.availableCapacity ?? 0
             VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text(store.rootDisplayName).font(.title3.weight(.semibold))
                     Spacer()
                     if let volume = store.volume {
                         let used = DisplayFormat.bytes(volume.usedCapacity)
                         let total = DisplayFormat.bytes(volume.totalCapacity)
                         Text("\(used) used of \(total)").foregroundStyle(.secondary)
+                    }
+                    if let onFreeUpSpace {
+                        Button(action: onFreeUpSpace) {
+                            Label("Free Up Space…", systemImage: "sparkles")
+                        }
+                        .controlSize(.small)
                     }
                 }
                 CapacityBar(

@@ -41,13 +41,22 @@ struct SidebarView: View {
 
     /// A section of task-oriented lists. Rows appear only once computed and
     /// non-empty, so nobody sees "Virtual machines · 0 B"; an empty section hides.
-    @ViewBuilder private func smartListSection(_ title: String, _ section: SmartListKind.Section) -> some View
+    @ViewBuilder private func smartListSection(
+        _ title: String, _ section: SmartListKind.Section
+    )
+        -> some View
     {
         let kinds = SmartListKind.allCases.filter { kind in
             kind.section == section && (store.smartLists[kind]?.totalBytes ?? 0) > 0
         }
-        if !kinds.isEmpty {
+        let showsFreeUp = section == .cleanUp && store.tree != nil
+        if !kinds.isEmpty || showsFreeUp {
             Section(title) {
+                if showsFreeUp {
+                    // The goal flow: "I need X GB" → a ranked, pre-ticked checklist.
+                    Label("Free up space", systemImage: "sparkles")
+                        .tag(SidebarItem.freeUpSpace)
+                }
                 ForEach(kinds, id: \.self) { kind in
                     treeRow(
                         name: kind.title, bytes: store.smartLists[kind]?.totalBytes ?? 0,

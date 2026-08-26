@@ -43,7 +43,7 @@ struct ContentView: View {
                 } else {
                     store.openFolder(url)
                 }
-            case .smartList, nil:
+            case .smartList, .freeUpSpace, nil:
                 break
             }
             // A different destination means a different set of rows on screen; never
@@ -108,11 +108,13 @@ struct ContentView: View {
         if store.tree != nil {
             if case .smartList(let kind) = sidebar {
                 SmartListView(store: store, kind: kind)
+            } else if sidebar == .freeUpSpace {
+                FreeUpSpaceView(store: store)
             } else {
                 // The drive overview is pinned on top no matter where you click; the
                 // path and that section's breakdown live beneath it.
                 let focus = store.focusedNode
-                DriveOverviewHeader(store: store)
+                DriveOverviewHeader(store: store) { sidebar = .freeUpSpace }
                 Divider()
                 BreadcrumbView(store: store, focus: focus) { sidebar = .node($0) }
                 Divider()
