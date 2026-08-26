@@ -1,4 +1,4 @@
-name: Radix
+name: Foldscale
 
 options:
   bundleIdPrefix: io.github.mikehoncho32
@@ -8,36 +8,36 @@ options:
   groupSortPosition: top
 
 packages:
-  RadixCore:
+  FoldscaleCore:
     path: .
 
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.1.0"
-    CURRENT_PROJECT_VERSION: "2"
+    MARKETING_VERSION: "1.2.0"
+    CURRENT_PROJECT_VERSION: "3"
     DEVELOPMENT_TEAM: ""
 
 targets:
-  RadixApp:
+  FoldscaleApp:
     type: application
     platform: macOS
     deploymentTarget: "14.0"
     sources:
-      - path: Sources/RadixApp
+      - path: Sources/FoldscaleApp
     dependencies:
-      - package: RadixCore
-        product: RadixCore
+      - package: FoldscaleCore
+        product: FoldscaleCore
     settings:
       base:
-        PRODUCT_NAME: Radix
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.mikehoncho32.radix
+        PRODUCT_NAME: Foldscale
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.mikehoncho32.foldscale
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: "YES"
-        INFOPLIST_KEY_CFBundleDisplayName: Radix
+        INFOPLIST_KEY_CFBundleDisplayName: Foldscale
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
         INFOPLIST_KEY_NSHumanReadableCopyright: "MIT License. See LICENSE."
-        # Radix ships non-sandboxed (handoff §3): a disk analyzer needs real
+        # Foldscale ships non-sandboxed (handoff §3): a disk analyzer needs real
         # filesystem access, gated by user-granted Full Disk Access (TCC), not
         # an entitlement. Hardened runtime is required for notarization (Milestone 6).
         ENABLE_HARDENED_RUNTIME: "YES"

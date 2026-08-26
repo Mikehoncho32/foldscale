@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Generates deterministic fixture trees for RadixCore.
+# Generates deterministic fixture trees for FoldscaleCore.
 #
 #   make-fixture-tree.sh golden <dir>            # small, known-shape reference tree
 #   make-fixture-tree.sh large  <dir> [copies]   # ~copies*10,100 + 50,000 nodes

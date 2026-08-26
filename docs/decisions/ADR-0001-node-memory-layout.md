@@ -17,7 +17,7 @@ benchmark two layouts and record the result:
    packed into one shared UTF-8 buffer referenced by `(offset, length)`.
 
 Both are implemented behind the `TreeBuilder` protocol so one walk drives either
-(`FileTreeBuilder` vs `ClassTreeBuilder`), and `radix-bench` measures them on the
+(`FileTreeBuilder` vs `ClassTreeBuilder`), and `foldscale-bench` measures them on the
 same fixture.
 
 ## Decision

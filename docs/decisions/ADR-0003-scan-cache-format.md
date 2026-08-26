@@ -5,7 +5,7 @@
 
 ## Context
 
-Radix persists the last scan so a relaunch shows results without a rescan (handoff
+Foldscale persists the last scan so a relaunch shows results without a rescan (handoff
 §5, item 10), stored in Application Support (§11 decision — survives cache purges).
 The tree is a struct-of-arrays (`FileTree`, ADR-0001). Handoff §7 asks us to pick a
 format by benchmark, target **load < 2 s for 1M nodes**, comparing SQLite vs flat
@@ -21,7 +21,7 @@ the envelope and whether to compress.
 Persist as a **binary property list of the raw-array blobs, LZFSE-compressed**
 (`ScanCache`).
 
-SQLite is rejected: it shines for incremental/partial queries, but Radix reloads
+SQLite is rejected: it shines for incremental/partial queries, but Foldscale reloads
 the *whole* tree at once, where a single flat blob is simpler, dependency-free, and
 faster. JSON is rejected: base64-ing the blobs inflates size and load time.
 

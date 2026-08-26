@@ -1,6 +1,6 @@
-# Contributing to Radix
+# Contributing to Foldscale
 
-Thanks for your interest! Radix aims to feel like a first-party Apple app, so contributions are held
+Thanks for your interest! Foldscale aims to feel like a first-party Apple app, so contributions are held
 to a matching bar for polish, performance, and safety.
 
 ## Ground rules
@@ -8,18 +8,18 @@ to a matching bar for polish, performance, and safety.
 - **Be kind.** This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
 - **Safety is non-negotiable.** All deletion goes through `FileManager.trashItem` — never
   `removeItem`. A test enforces this; PRs that add `removeItem(` will fail CI.
-- **`RadixCore` stays UI-free.** No `import SwiftUI` / `import AppKit` in the engine (a test enforces
-  this). Keep filesystem/analysis logic in `RadixCore` and UI in `RadixApp`.
+- **`FoldscaleCore` stays UI-free.** No `import SwiftUI` / `import AppKit` in the engine (a test enforces
+  this). Keep filesystem/analysis logic in `FoldscaleCore` and UI in `FoldscaleApp`.
 
 ## Getting set up
 
 ```bash
 brew install xcodegen swiftlint
-git clone https://github.com/Mikehoncho32/radix.git
-cd radix
+git clone https://github.com/Mikehoncho32/foldscale.git
+cd foldscale
 swift test                 # engine unit tests
-xcodegen generate          # produces Radix.xcodeproj (gitignored)
-open Radix.xcodeproj        # or build via xcodebuild
+xcodegen generate          # produces Foldscale.xcodeproj (gitignored)
+open Foldscale.xcodeproj        # or build via xcodebuild
 ```
 
 ## Before you open a PR
@@ -30,7 +30,7 @@ Run the same checks CI runs:
 swift test
 swiftlint --strict
 swift format lint --strict --recursive Sources Tests   # or `swift format --in-place` to auto-fix
-xcodegen generate && xcodebuild -project Radix.xcodeproj -scheme RadixApp -destination 'platform=macOS' build
+xcodegen generate && xcodebuild -project Foldscale.xcodeproj -scheme FoldscaleApp -destination 'platform=macOS' build
 ```
 
 ## Commit & PR conventions
@@ -43,7 +43,7 @@ xcodegen generate && xcodebuild -project Radix.xcodeproj -scheme RadixApp -desti
 
 ## Performance
 
-Radix targets 1M items scanned in < 60 s, 60 fps during scan, and < 150 MB RSS for a 1M-node tree.
+Foldscale targets 1M items scanned in < 60 s, 60 fps during scan, and < 150 MB RSS for a 1M-node tree.
 If your change touches the scan hot path or the tree view, include before/after numbers
 (`Scripts/bench.sh`).
 

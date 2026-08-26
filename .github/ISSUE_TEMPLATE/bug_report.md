@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Something in Radix behaves incorrectly
+about: Something in Foldscale behaves incorrectly
 title: "bug: "
 labels: bug
 ---
@@ -17,7 +17,7 @@ What you expected to happen instead.
 
 **Environment**
 - macOS version:
-- Radix version:
+- Foldscale version:
 - Full Disk Access granted? (yes/no)
 - Volume/folder being scanned (APFS internal / external / cloud-backed / network):
 

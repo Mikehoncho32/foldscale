@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   core:
-    name: RadixCore · swift test
+    name: FoldscaleCore · swift test
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
         run: swift test
 
   app:
-    name: RadixApp · xcodebuild
+    name: FoldscaleApp · xcodebuild
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,8 +34,8 @@ jobs:
       - name: Build app
         run: |
           xcodebuild \
-            -project Radix.xcodeproj \
-            -scheme RadixApp \
+            -project Foldscale.xcodeproj \
+            -scheme FoldscaleApp \
             -destination 'platform=macOS' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
