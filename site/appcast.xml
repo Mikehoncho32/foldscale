@@ -7,6 +7,28 @@
     <description>Foldscale releases, newest first. Maintained by Scripts/appcast.sh — do not edit by hand.</description>
     <language>en</language>
     <!-- items:begin -->
+    <item>
+      <title>Foldscale 1.3.0</title>
+      <pubDate>Wed, 26 Aug 2026 19:41:52 +0000</pubDate>
+      <sparkle:version>4</sparkle:version>
+      <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <link>https://github.com/Mikehoncho32/foldscale/releases/tag/v1.3.0</link>
+      <description><![CDATA[<h3 dir="auto">Added</h3>
+<ul dir="auto">
+<li><strong>Auto-updates.</strong> Foldscale can now keep itself current: on its second launch it asks whether to<br>
+check foldscale.com once a day, and <strong>Foldscale → Check for Updates…</strong> works at any time. The<br>
+check sends no identifiers; updates are verified with both Apple's Developer ID and an EdDSA key<br>
+built into the app. Versions before 1.3.0 have no updater — download once more or <code class="notranslate">brew upgrade</code>.</li>
+<li>Settings: "Check for updates automatically" and "Download and install updates automatically".</li>
+</ul>
+<h3 dir="auto">Changed</h3>
+<ul dir="auto">
+<li>The "no network" wording on the website, in the README and in the Full Disk Access sheet now<br>
+describes the one optional request the app makes.</li>
+</ul>]]></description>
+      <enclosure url="https://github.com/Mikehoncho32/foldscale/releases/download/v1.3.0/Foldscale-1.3.0.dmg" length="2862095" type="application/octet-stream" sparkle:edSignature="rSkELRIt6fFVxK1YD1B7Ap4ZwWjBU+k3y3991cYn6Rjdm7s0LkZ2VGGtHUoeHksKUb8t6VhyyYCee8uhgYpxDQ=="/>
+    </item>
     <!-- items:end -->
   </channel>
 </rss>
