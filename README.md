@@ -13,11 +13,11 @@
 </p>
 
 <p align="center">
-  <a href="https://mikehoncho32.github.io/foldscale/"><img src="site/img/home-light.png" width="860" alt="Foldscale showing a home folder: every folder with its size, sorted biggest-first"></a>
+  <a href="https://foldscale.com/"><img src="site/img/home-light.png" width="860" alt="Foldscale showing a home folder: every folder with its size, sorted biggest-first"></a>
 </p>
 
 <p align="center">
-  <a href="https://mikehoncho32.github.io/foldscale/"><strong>mikehoncho32.github.io/foldscale</strong></a> ·
+  <a href="https://foldscale.com/"><strong>foldscale.com</strong></a> ·
   <a href="../../releases/latest">Download</a> ·
   <code>brew install --cask mikehoncho32/foldscale/foldscale</code>
 </p>
@@ -137,7 +137,7 @@ benchmark and recorded as ADRs in [`docs/decisions/`](docs/decisions).
 | 5 | Smart lists + scan-cache persistence |
 | 6 | v1.0: sidebar, footer stats, icon, DMG, release |
 | 1.1 | Drive tree sidebar, live refresh, drive overview, task-oriented smart lists, Free up space, notarized DMG |
-| 1.1.x | Homebrew tap, landing page ([mikehoncho32.github.io/foldscale](https://mikehoncho32.github.io/foldscale/)), demo mode for screenshots |
+| 1.1.x | Homebrew tap, landing page ([foldscale.com](https://foldscale.com/)), demo mode for screenshots |
 
 ## Contributing
 
