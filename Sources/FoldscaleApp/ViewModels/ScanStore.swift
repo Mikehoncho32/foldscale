@@ -566,6 +566,7 @@ final class ScanStore {
             guard !Task.isCancelled, let self, self.generation == expected, !results.isEmpty else { return }
             self.smartLists = results
             self.smartListsGeneration = expected
+            SmartListDump.printIfRequested(results, tree: tree, context: context)
         }
     }
 

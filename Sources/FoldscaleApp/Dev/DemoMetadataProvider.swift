@@ -31,6 +31,8 @@ struct DemoMetadataProvider: BundleInfoProvider {
         "Steam.app": BundleInfo(name: "Steam", identifier: "com.valvesoftware.steam", category: "games"),
         "Arc.app": BundleInfo(
             name: "Arc", identifier: "company.thebrowser.Browser", category: "productivity"),
+        // Teams is gone but Word/Excel share its vendor, so its container is "owned";
+        // Sketch and Postman are gone for good — their support data is a leftover.
     ]
 
     func info(forBundleAt absolutePath: String) -> BundleInfo? {

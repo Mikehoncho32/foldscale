@@ -7,11 +7,14 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
     case downloads
     case cachesAndTrash
     case developerJunk
+    case appLeftovers
     case appsAndGames
     case bigProjects
     case videos
+    case mediaLibraries
     case phoneBackups
     case virtualMachines
+    case cloudFiles
     case whatGrew
 
     /// Which sidebar section the list belongs to.
@@ -24,8 +27,9 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
 
     public var section: Section {
         switch self {
-        case .downloads, .cachesAndTrash, .developerJunk: return .cleanUp
-        case .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines, .whatGrew:
+        case .downloads, .cachesAndTrash, .developerJunk, .appLeftovers: return .cleanUp
+        case .appsAndGames, .bigProjects, .videos, .mediaLibraries, .phoneBackups, .virtualMachines,
+            .cloudFiles, .whatGrew:
             return .whatsHere
         }
     }
@@ -35,11 +39,14 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
         case .downloads: return "Downloads"
         case .cachesAndTrash: return "Caches & Trash"
         case .developerJunk: return "Developer junk"
+        case .appLeftovers: return "App leftovers"
         case .appsAndGames: return "Apps & games"
         case .bigProjects: return "Big projects"
         case .videos: return "Videos & recordings"
+        case .mediaLibraries: return "Media libraries"
         case .phoneBackups: return "Phone backups"
         case .virtualMachines: return "Virtual machines"
+        case .cloudFiles: return "Cloud files"
         case .whatGrew: return "What grew"
         }
     }
@@ -53,6 +60,8 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
             return "Space macOS and your apps rebuild on their own — safe to clear."
         case .developerJunk:
             return "Build output and tool caches that come back on the next build — safe to clear."
+        case .appLeftovers:
+            return "Support data left behind by apps that aren't installed anymore."
         case .appsAndGames:
             return "Apps and games by their real footprint, including their support data."
         case .bigProjects:
@@ -60,12 +69,17 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
                 "Your largest project folders, when you last touched them, and how much inside is rebuildable."
         case .videos:
             return "Large videos, with screen and meeting recordings grouped on top."
+        case .mediaLibraries:
+            return "Photos, Music, TV and other app-managed libraries. Remove items inside the app, not here."
         case .phoneBackups:
             return
                 "iPhone and iPad backups kept on this Mac. Old ones can go; the next backup recreates them."
         case .virtualMachines:
             return
                 "Virtual machines and container disks — often the biggest single items on a developer's Mac."
+        case .cloudFiles:
+            return
+                "iCloud Drive, Dropbox and other synced folders: what's on this Mac and what's only in the cloud."
         case .whatGrew:
             return "Folders that got bigger since an earlier scan."
         }
@@ -76,11 +90,14 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
         case .downloads: return "arrow.down.circle"
         case .cachesAndTrash: return "trash"
         case .developerJunk: return "hammer"
+        case .appLeftovers: return "app.dashed"
         case .appsAndGames: return "gamecontroller"
         case .bigProjects: return "folder.badge.gearshape"
         case .videos: return "film"
+        case .mediaLibraries: return "photo.on.rectangle"
         case .phoneBackups: return "iphone"
         case .virtualMachines: return "pc"
+        case .cloudFiles: return "icloud"
         case .whatGrew: return "chart.line.uptrend.xyaxis"
         }
     }
@@ -89,8 +106,9 @@ public enum SmartListKind: String, CaseIterable, Sendable, Codable {
     public var safety: SmartListSafety {
         switch self {
         case .downloads, .cachesAndTrash, .developerJunk: return .safeToTrash
-        case .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines: return .reviewFirst
-        case .whatGrew: return .informational
+        case .appLeftovers, .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines:
+            return .reviewFirst
+        case .mediaLibraries, .cloudFiles, .whatGrew: return .informational
         }
     }
 }
