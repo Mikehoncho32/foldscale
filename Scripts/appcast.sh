@@ -74,7 +74,9 @@ item="$(mktemp)"
     printf '    </item>\n'
 } > "$item"
 
-# 4. Splice: drop a same-version item (only with --force), insert, keep 10.
+# 4. Splice: drop a same-version item (only with --force), insert, keep 10. A missing
+#    --out file starts from the committed skeleton (used for local test feeds).
+[ -f "$out" ] || sed '/<item>/,/<\/item>/d' site/appcast.xml > "$out"
 marker="<sparkle:shortVersionString>$version</sparkle:shortVersionString>"
 if grep -qF "$marker" "$out"; then
     [ "$force" = 1 ] || { echo "$out already has $version; pass --force to replace it" >&2; exit 1; }
