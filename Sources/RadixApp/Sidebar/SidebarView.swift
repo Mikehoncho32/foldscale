@@ -32,7 +32,8 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
-        .frame(minWidth: 220)
+        // Wide enough that "Macintosh HD · 182.86 GB" doesn't truncate at the default.
+        .navigationSplitViewColumnWidth(min: 220, ideal: 280)
         // Ids are reused across scans; re-keying the list resets expansion state.
         .id(store.scanSession)
     }

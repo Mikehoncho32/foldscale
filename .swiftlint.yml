@@ -37,7 +37,7 @@ type_name:
 # The struct-of-arrays FileTree and the ScanStore are intentionally cohesive
 # single types (ADR-0001); allow them a little more room than the defaults.
 file_length:
-  warning: 600
+  warning: 700
   error: 900
 
 type_body_length:

@@ -128,10 +128,8 @@ struct FreeUpSpaceView: View {
                             row(suggestion, tree)
                         }
                     } header: {
-                        HStack(spacing: 8) {
-                            Text(safety == .safeToTrash ? "Safe to remove" : "Review first")
-                            SafetyBadge(safety: safety)
-                        }
+                        // The badge already says "Safe to remove" / "Review first".
+                        SafetyBadge(safety: safety)
                     }
                 }
             }

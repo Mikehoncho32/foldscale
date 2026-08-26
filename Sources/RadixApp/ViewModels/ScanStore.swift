@@ -161,6 +161,10 @@ final class ScanStore {
     /// A message about items the last trash couldn't move (protected or failed).
     var trashNotice: String?
 
+    /// Demo mode (`RADIX_DEMO=1`): a hand-written tree stands in for a scan so
+    /// screenshots never show real files. It never refreshes and never persists.
+    private(set) var isDemo = false
+
     // MARK: - Scanning a root
 
     /// Starts (or restarts) a scan of `url` as a **new root**, streaming progress
@@ -173,6 +177,7 @@ final class ScanStore {
         smartLists = [:]
         smartListsGeneration = -1
         isRefreshing = false
+        isDemo = false
         rootURL = url
         tree = nil
         selection = []
@@ -231,7 +236,7 @@ final class ScanStore {
     /// Re-walks the current root in the background and swaps the fresh tree in
     /// underneath the user, preserving focus (by path), selection and expansion.
     func refresh() {
-        guard let rootURL, let tree, !isScanning, !isRefreshing else { return }
+        guard !isDemo, let rootURL, let tree, !isScanning, !isRefreshing else { return }
         subtreeTask?.cancel()
         isRefreshing = true
         refreshProgress = nil
@@ -312,7 +317,7 @@ final class ScanStore {
     /// Debounced (rapid clicks start one scan), single in-flight, skipped for the
     /// root, during a full refresh, and when this folder or an ancestor is fresh.
     func refreshSubtree(_ node: FileTree.NodeID) {
-        guard let tree, let rootURL, !isScanning, !isRefreshing,
+        guard !isDemo, let tree, let rootURL, !isScanning, !isRefreshing,
             node != tree.rootID, tree.isLive(node),
             tree.flags(of: node).contains(.directory),
             let url = url(for: node)
@@ -564,6 +569,23 @@ final class ScanStore {
         refreshFDA()
     }
 
+    /// Publishes the demo drive (see `DemoTree`) as if it had just been scanned.
+    func loadDemo() {
+        let demo = DemoTree.make(homePath: FileManager.default.homeDirectoryForCurrentUser.path)
+        let root = URL(fileURLWithPath: "/")
+        isDemo = true
+        rootURL = root
+        tree = demo
+        focusPath = []
+        focusedNode = demo.rootID
+        lastFullRefresh = Date()
+        lastRefreshed = ["": Date()]
+        bumpGeneration()
+        scanSession += 1
+        phase = .done
+        volume = VolumeStats.forVolume(containing: root)
+    }
+
     /// Saves the tree after a short quiet period, so bursts of edits/refreshes don't
     /// each rewrite the (tens of MB) cache. All saves run on one serial queue.
     private func schedulePersist() {
@@ -576,7 +598,7 @@ final class ScanStore {
     }
 
     private func persistNow() {
-        guard let tree, let path = rootURL?.path else { return }
+        guard !isDemo, let tree, let path = rootURL?.path else { return }
         Self.persistQueue.async { try? ScanCache.save(tree: tree, rootPath: path, savedAt: Date()) }
     }
 

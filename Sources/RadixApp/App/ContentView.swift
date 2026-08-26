@@ -75,7 +75,10 @@ struct ContentView: View {
             store.refreshFDA()
             // Dev/CI hook: auto-scan a folder from the environment so the app can be
             // driven headlessly (screenshots, smoke tests) without the open panel.
-            if let path = ProcessInfo.processInfo.environment["RADIX_SCAN_PATH"] {
+            if DemoStaging.isEnabled {
+                store.loadDemo()
+                DemoStaging.apply(store: store, bridge: bridge) { sidebar = $0 }
+            } else if let path = ProcessInfo.processInfo.environment["RADIX_SCAN_PATH"] {
                 store.openFolder(URL(fileURLWithPath: path))
             } else {
                 store.loadCachedScan()
