@@ -12,9 +12,25 @@ public struct ScanOptions: Sendable {
     /// Directory exclusion rules applied before descending.
     public var exclusions: ScanExclusions
 
-    public init(stayOnStartVolume: Bool = true, exclusions: ScanExclusions = .default) {
+    /// Expected node count. When set, the walker pre-sizes storage from it and
+    /// skips its silent `readdir` pre-count pass (use the previous scan's count).
+    public var capacityHint: Int?
+
+    /// The path whose volume policy applies (see `VolumePolicy`). Set to the full
+    /// scan's root (e.g. `/`) when scanning a subtree, so a refresh of `/usr` keeps
+    /// the firmlinked `/usr/local` that lives on the Data volume.
+    public var volumePolicyRoot: String?
+
+    public init(
+        stayOnStartVolume: Bool = true,
+        exclusions: ScanExclusions = .default,
+        capacityHint: Int? = nil,
+        volumePolicyRoot: String? = nil
+    ) {
         self.stayOnStartVolume = stayOnStartVolume
         self.exclusions = exclusions
+        self.capacityHint = capacityHint
+        self.volumePolicyRoot = volumePolicyRoot
     }
 }
 

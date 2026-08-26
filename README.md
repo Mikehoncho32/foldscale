@@ -9,11 +9,10 @@
   <img alt="Platform" src="https://img.shields.io/badge/macOS-14%2B-black?logo=apple">
   <img alt="Swift" src="https://img.shields.io/badge/Swift-5.10%2B-orange?logo=swift">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
-  <em>&nbsp;· Status: pre-release, in active development (Milestone 0)</em>
+  <em>&nbsp;· Status: v1.1 — signed and notarized releases</em>
 </p>
 
-<!-- TODO: replace with a real screenshot once the outline view lands (Milestone 2). -->
-<p align="center"><em>Screenshot coming with Milestone 2.</em></p>
+<!-- TODO: add a screenshot of the drive view + Free up space. -->
 
 ---
 
@@ -31,7 +30,9 @@ separates this from "Finder with a size column."
 - **Sort by size, sticky at every depth.** Name / Items / Modified are there too, but size is where you land.
 - **Allocated size, not logical size** — what actually frees up when you delete.
 - **Cloud-aware.** iCloud/Dropbox online-only placeholders show their real local footprint with a badge; Radix never silently downloads them.
-- **Smart lists** live in the sidebar as places you go: *Large files*, *Old and big*.
+- **Task-oriented lists** live in the sidebar as places you go — *Downloads*, *Caches & Trash*, *Developer junk*, *Apps & games*, *Big projects*, *Videos & recordings* — each with a safety badge.
+- **Free up space.** Say how much you need; Radix pre-ticks the safest candidates to cover it, you adjust, one confirmation.
+- **Always current.** The last scan opens instantly and refreshes in the background; the folder you click is re-checked on the spot.
 - **Safe by construction.** Every delete routes through the system Trash with a confirmation sheet — never a permanent delete. Protected system paths refuse to be trashed.
 
 ## Requirements
@@ -41,13 +42,11 @@ separates this from "Finder with a size column."
 
 ## Install
 
-Download **`Radix-1.0.0.dmg`** from the [latest release](../../releases/latest), open it, and drag
-**Radix** into your Applications folder.
+Download **`Radix-<version>.dmg`** from the [latest release](../../releases/latest), open it, and
+drag **Radix** into your Applications folder, then double-click it. Releases from v1.1.0 on are
+signed with a Developer ID and notarized by Apple, so there's no Gatekeeper warning.
 
-> **First launch:** the v1.0 build is not notarized yet (notarization requires an Apple Developer ID
-> certificate), so macOS Gatekeeper will warn on first open. **Right-click Radix → Open**, then click
-> **Open** in the dialog — a one-time step. A notarized build and a Homebrew cask follow once code
-> signing is set up (see `Scripts/notarize.sh`).
+> Running an older unsigned build (v1.0.0)? **Right-click Radix → Open** the first time.
 
 ### Full Disk Access
 
@@ -97,13 +96,14 @@ benchmark and recorded as ADRs in [`docs/decisions/`](docs/decisions).
 
 | Milestone | What |
 |---|---|
-| 0 | Repo + skeleton, CI, empty app launches ← **you are here** |
+| 0 | Repo + skeleton, CI, empty app launches |
 | 1 | Scanner core: `fts` walk, allocated-size aggregation, hardlink dedupe |
 | 2 | Outline view with parent-relative size bars, size sort, progressive scan |
 | 3 | Quick Look · Reveal · Copy Path · Get Info · Move to Trash (+ live re-total) |
 | 4 | Full Disk Access onboarding, protected paths, cloud placeholders |
 | 5 | Smart lists + scan-cache persistence |
-| 6 | v1.0: sidebar, footer stats, icon, notarized DMG, release |
+| 6 | v1.0: sidebar, footer stats, icon, DMG, release |
+| 1.1 | Drive tree sidebar, live refresh, drive overview, task-oriented smart lists, Free up space, notarized DMG |
 
 ## Contributing
 

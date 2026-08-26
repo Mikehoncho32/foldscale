@@ -51,3 +51,11 @@ a download. This is the safety-critical property from the plan's §2.2.
   `DirectoryWalker`, so switching to `fts` later is contained.
 - Names are read from `dirent.d_name` via `withUnsafeBytes`, avoiding the `fts_name`
   flexible-array idiom entirely.
+
+## Addendum (2026-08-25): subtree refresh
+
+`ScanOptions.volumePolicyRoot` lets a subtree scan (used for click-to-refresh) reuse the
+full scan's allowed-device set, so refreshing `/usr` keeps the firmlinked `/usr/local`.
+`ScanOptions.capacityHint` skips the `readdir` pre-count when a previous count is known.
+A subtree scan starts with an empty hard-link `seen` set, so a link first seen outside the
+subtree is counted again inside it until the next full refresh — accepted drift.

@@ -25,8 +25,13 @@ public struct ScanSnapshot: Codable, Sendable {
 /// (see the §11 decision). Format is a binary property list of raw-array blobs
 /// (ADR-0003).
 public enum ScanCache {
-    /// `~/Library/Application Support/Radix/`.
+    /// Test hook: when set, the cache lives here instead of Application Support, so
+    /// unit tests never touch (or clobber) the user's real cache.
+    static var directoryOverride: URL?
+
+    /// `~/Library/Application Support/Radix/` (or the test override).
     public static var directory: URL {
+        if let directoryOverride { return directoryOverride }
         let base =
             (try? FileManager.default.url(
                 for: .applicationSupportDirectory, in: .userDomainMask,

@@ -27,14 +27,14 @@ public enum SmartLists {
         return result
     }
 
+    /// All live, non-directory nodes. Uses `liveMask()` so files under a trashed or
+    /// replaced directory are excluded, not just directly-removed nodes.
     private static func nonDirectoryNodes(in tree: FileTree) -> [FileTree.NodeID] {
+        let live = tree.liveMask()
         var nodes: [FileTree.NodeID] = []
-        var id: FileTree.NodeID = 0
-        while id < FileTree.NodeID(tree.count) {
-            if !tree.isRemoved(id), !tree.flags(of: id).contains(.directory) {
-                nodes.append(id)
-            }
-            id += 1
+        for index in 0..<tree.count where live[index] {
+            let id = FileTree.NodeID(index)
+            if !tree.flags(of: id).contains(.directory) { nodes.append(id) }
         }
         return nodes
     }

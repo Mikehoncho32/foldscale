@@ -14,21 +14,17 @@ struct SidebarView: View {
         List(selection: $selection) {
             driveSection
 
-            Section("Smart Lists") {
-                Label(SidebarItem.largeFiles.title, systemImage: SidebarItem.largeFiles.systemImage)
-                    .tag(SidebarItem.largeFiles)
-                Label(SidebarItem.oldAndBig.title, systemImage: SidebarItem.oldAndBig.systemImage)
-                    .tag(SidebarItem.oldAndBig)
-            }
-
             Section("Favorites") {
                 ForEach(favorites, id: \.self) { url in
                     placeRow(url, icon: favoriteIcon(url))
                 }
             }
 
+            smartListSection("Clean Up", .cleanUp)
+            smartListSection("What's Here", .whatsHere)
+
             if !volumes.isEmpty {
-                Section("Volumes") {
+                Section("Drives") {
                     ForEach(volumes, id: \.self) { url in
                         placeRow(url, icon: "externaldrive", label: volumeName(url))
                     }
@@ -41,6 +37,37 @@ struct SidebarView: View {
         .id(store.scanSession)
     }
 
+    // MARK: - Smart lists
+
+    /// A section of task-oriented lists. Rows appear only once computed and
+    /// non-empty, so nobody sees "Virtual machines · 0 B"; an empty section hides.
+    @ViewBuilder private func smartListSection(
+        _ title: String, _ section: SmartListKind.Section
+    )
+        -> some View
+    {
+        let kinds = SmartListKind.allCases.filter { kind in
+            kind.section == section && (store.smartLists[kind]?.totalBytes ?? 0) > 0
+        }
+        let showsFreeUp = section == .cleanUp && store.tree != nil
+        if !kinds.isEmpty || showsFreeUp {
+            Section(title) {
+                if showsFreeUp {
+                    // The goal flow: "I need X GB" → a ranked, pre-ticked checklist.
+                    Label("Free up space", systemImage: "sparkles")
+                        .tag(SidebarItem.freeUpSpace)
+                }
+                ForEach(kinds, id: \.self) { kind in
+                    treeRow(
+                        name: kind.title, bytes: store.smartLists[kind]?.totalBytes ?? 0,
+                        icon: kind.systemImage
+                    )
+                    .tag(SidebarItem.smartList(kind))
+                }
+            }
+        }
+    }
+
     // MARK: - Drive tree
 
     @ViewBuilder private var driveSection: some View {
@@ -50,9 +77,17 @@ struct SidebarView: View {
                 // the sidebar stays compact on first load; expanding it reveals the
                 // primary folders (biggest first) and the "System & other" remainder.
                 let root = SidebarNode(
-                    kind: .folder(tree.rootID), tree: tree, otherBytes: store.unscannedVolumeBytes)
+                    kind: .folder(tree.rootID), tree: tree, path: "",
+                    otherBytes: store.unscannedVolumeBytes)
                 OutlineGroup([root], children: \.children) { node in
-                    if node.isOther {
+                    if let nodeID = node.nodeID {
+                        let isRoot = nodeID == tree.rootID
+                        treeRow(
+                            name: node.name(rootName: store.rootDisplayName), bytes: node.bytes,
+                            icon: isRoot ? driveIcon : "folder", bold: isRoot
+                        )
+                        .tag(SidebarItem.node(nodeID))
+                    } else {
                         treeRow(
                             name: node.name(rootName: ""), bytes: node.bytes, icon: "gearshape", dimmed: true
                         )
@@ -60,13 +95,6 @@ struct SidebarView: View {
                         .help(
                             "Space used by the sealed System volume, VM, snapshots and caches Radix doesn't scan"
                         )
-                    } else {
-                        let isRoot = node.id == tree.rootID
-                        treeRow(
-                            name: node.name(rootName: store.rootDisplayName), bytes: node.bytes,
-                            icon: isRoot ? driveIcon : "folder", bold: isRoot
-                        )
-                        .tag(SidebarItem.node(node.id))
                     }
                 }
             } else if store.isScanning {
@@ -75,6 +103,8 @@ struct SidebarView: View {
                     Text("Scanning \(store.rootDisplayName)…").foregroundStyle(.secondary)
                 }
             } else {
+                // No scan yet: the main pane shows the drive overview with its Scan
+                // button; this row mirrors it so the sidebar isn't empty.
                 bootVolumeButton
             }
         }
@@ -133,16 +163,13 @@ struct SidebarView: View {
 
     // MARK: - Places
 
+    /// A place shortcut: a selectable row, so the clicked Favorite/Volume stays
+    /// highlighted while the drive tree above stays exactly as you left it. The
+    /// window resolves it: a folder inside the loaded scan just gets focused
+    /// (instantly, with a quiet refresh); one outside the scan starts a new scan.
     private func placeRow(_ url: URL, icon: String, label: String? = nil) -> some View {
-        Button {
-            store.openFolder(url)
-            selection = nil
-        } label: {
-            Label(label ?? displayName(url), systemImage: icon)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        Label(label ?? displayName(url), systemImage: icon)
+            .tag(SidebarItem.place(url))
     }
 
     private var favorites: [URL] {

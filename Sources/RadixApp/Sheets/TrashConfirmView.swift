@@ -1,14 +1,20 @@
 import RadixCore
 import SwiftUI
 
-/// The required confirmation before any trash action (handoff §6): it lists the
-/// items and the space that will be reclaimed, and notes any protected items that
-/// will be skipped. The destructive button is danger-tinted, never primary-styled.
+/// The required confirmation before any trash action (handoff §6): lists what will
+/// go — biggest first, with where it lives and its size — and the space reclaimed
+/// (nested items counted once). The destructive button is danger-tinted and is
+/// **not** the default button, so Return can't trash anything by accident.
 struct TrashConfirmView: View {
     let store: ScanStore
     @Environment(\.dismiss) private var dismiss
 
-    private var nodes: [FileTree.NodeID] { Array(store.selection) }
+    /// Outermost selected items, biggest first (a folder covers its contents).
+    private var nodes: [FileTree.NodeID] {
+        guard let tree = store.tree else { return [] }
+        return FreeUpPlanner.outermost(of: store.selection, in: tree)
+            .sorted { tree.totalAllocatedSize(of: $0) > tree.totalAllocatedSize(of: $1) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -16,16 +22,26 @@ struct TrashConfirmView: View {
                 .font(.headline)
 
             if let tree = store.tree {
-                VStack(alignment: .leading, spacing: 3) {
-                    ForEach(nodes.prefix(8), id: \.self) { node in
-                        Label(tree.name(of: node), systemImage: iconName(tree, node))
-                            .lineLimit(1)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(nodes, id: \.self) { node in
+                            HStack(spacing: 8) {
+                                Image(systemName: iconName(tree, node)).foregroundStyle(.secondary).frame(
+                                    width: 16)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(tree.name(of: node)).lineLimit(1)
+                                    Text(location(of: node)).font(.caption).foregroundStyle(.tertiary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                                Text(DisplayFormat.bytes(tree.totalAllocatedSize(of: node)))
+                                    .monospacedDigit().foregroundStyle(.secondary)
+                            }
+                        }
                     }
-                    if nodes.count > 8 {
-                        Text("and \(nodes.count - 8) more…").foregroundStyle(.secondary)
-                    }
+                    .font(.callout)
                 }
-                .font(.callout)
+                .frame(maxHeight: 220)
             }
 
             Text("You'll reclaim \(DisplayFormat.bytes(store.selectionReclaimBytes)).")
@@ -41,17 +57,25 @@ struct TrashConfirmView: View {
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .keyboardShortcut(.defaultAction)
                 Button("Move to Trash") { confirm() }
                     .tint(.red)
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
-        .frame(width: 440)
+        .frame(width: 480)
     }
 
     private func iconName(_ tree: FileTree, _ node: FileTree.NodeID) -> String {
         tree.flags(of: node).contains(.directory) ? "folder" : "doc"
+    }
+
+    /// "~/Downloads" — the parent folder, home-relative.
+    private func location(of node: FileTree.NodeID) -> String {
+        guard let parent = store.url(for: node)?.deletingLastPathComponent().path else { return "" }
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        if parent == home { return "~" }
+        return parent.hasPrefix(home + "/") ? "~" + parent.dropFirst(home.count) : parent
     }
 
     private func confirm() {

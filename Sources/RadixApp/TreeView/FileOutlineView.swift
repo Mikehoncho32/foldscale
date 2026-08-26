@@ -2,6 +2,9 @@ import AppKit
 import RadixCore
 import SwiftUI
 
+/// Expanded and selected outline rows, captured by path so they survive a tree swap.
+private typealias OutlineRowState = (expanded: [[String]], selected: [[String]])
+
 /// A Finder-style `NSOutlineView` (wrapped for SwiftUI) that renders a `FileTree`
 /// with parent-relative size bars, size-sort by default, and column re-sorting.
 /// `NSOutlineView` recycles row views, so it stays at 60 fps with tens of
@@ -85,13 +88,15 @@ struct FileOutlineView: NSViewRepresentable {
     /// Data source + delegate. Holds the tree and a per-id identity/sorted-children
     /// cache; rebuilt on each new scan generation.
     @MainActor
-    final class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
+    final class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
         weak var outlineView: NSOutlineView?
         var onOpenDirectory: (FileTree.NodeID) -> Void = { _ in }
-        private let store: ScanStore
+        let store: ScanStore
         private var tree: FileTree?
         private var generation = -1
         private var focus: FileTree.NodeID = FileTree.none
+        /// The focused folder by path — stable across tree swaps, unlike its id.
+        private var focusPath: [String] = []
         private var sortKey: SortKey = .size
         private var ascending = false
         private var nodeCache: [FileTree.NodeID: OutlineNode] = [:]
@@ -99,19 +104,63 @@ struct FileOutlineView: NSViewRepresentable {
 
         init(store: ScanStore) { self.store = store }
 
-        /// Reloads when the tree generation or the focused folder changes. A
-        /// focus-only change keeps the (still valid) sorted-children cache but drops
-        /// row identities so `NSOutlineView` starts the new top level collapsed.
+        /// Reloads when the tree generation or the focused folder changes.
+        ///
+        /// A focus change starts the new top level collapsed and scrolled to the top.
+        /// A tree change with the *same* focus (a background refresh swapped a fresh
+        /// tree in, or a splice/trash re-totaled it) restores the expanded rows and
+        /// the selection by path, so the user never loses their place.
         func apply(tree: FileTree?, generation: Int, focus: FileTree.NodeID) {
             let generationChanged = generation != self.generation
             guard generationChanged || focus != self.focus else { return }
+            let newFocusPath = tree.map { $0.pathComponentsFromRoot(of: focus) } ?? []
+            let focusChanged = newFocusPath != focusPath || self.tree == nil
+            let snapshot = generationChanged && !focusChanged ? snapshotRowState() : nil
+
             self.generation = generation
             self.focus = focus
+            self.focusPath = newFocusPath
             self.tree = tree
             nodeCache.removeAll()
             if generationChanged { childCache.removeAll() }
             outlineView?.reloadData()
-            if outlineView?.numberOfRows ?? 0 > 0 { outlineView?.scrollRowToVisible(0) }
+
+            if let snapshot {
+                restoreRowState(snapshot)
+            } else if focusChanged, outlineView?.numberOfRows ?? 0 > 0 {
+                outlineView?.scrollRowToVisible(0)
+            }
+        }
+
+        /// Expanded and selected rows by path, in display (pre-)order.
+        private func snapshotRowState() -> OutlineRowState? {
+            guard let oldTree = tree, let outlineView else { return nil }
+            var state: OutlineRowState = ([], [])
+            for row in 0..<outlineView.numberOfRows {
+                guard let item = outlineView.item(atRow: row) as? OutlineNode else { continue }
+                let path = oldTree.pathComponentsFromRoot(of: item.id)
+                if outlineView.isItemExpanded(item) { state.expanded.append(path) }
+                if outlineView.selectedRowIndexes.contains(row) { state.selected.append(path) }
+            }
+            return state.expanded.isEmpty && state.selected.isEmpty ? nil : state
+        }
+
+        /// Re-expands and re-selects rows by resolving their paths in the new tree.
+        /// Paths were captured in pre-order, so parents re-expand before children.
+        private func restoreRowState(_ state: OutlineRowState) {
+            guard let tree, let outlineView else { return }
+            outlineView.beginUpdates()
+            for path in state.expanded {
+                if let id = tree.node(atPathComponents: path) { outlineView.expandItem(node(id)) }
+            }
+            outlineView.endUpdates()
+            var rows = IndexSet()
+            for path in state.selected {
+                guard let id = tree.node(atPathComponents: path) else { continue }
+                let row = outlineView.row(forItem: node(id))
+                if row >= 0 { rows.insert(row) }
+            }
+            if !rows.isEmpty { outlineView.selectRowIndexes(rows, byExtendingSelection: false) }
         }
 
         /// Double-clicking a folder row opens it as the new focus (Finder-like).
@@ -219,41 +268,6 @@ struct FileOutlineView: NSViewRepresentable {
             }
             store.selection = Set(ids)
         }
-
-        // MARK: Context menu
-
-        func menuNeedsUpdate(_ menu: NSMenu) {
-            menu.removeAllItems()
-            guard let outlineView else { return }
-            let clicked = outlineView.clickedRow
-            if clicked >= 0, !outlineView.selectedRowIndexes.contains(clicked) {
-                outlineView.selectRowIndexes(IndexSet(integer: clicked), byExtendingSelection: false)
-            }
-            guard !store.selection.isEmpty else { return }
-            add(to: menu, "Open", #selector(menuOpen))
-            add(to: menu, "Reveal in Finder", #selector(menuReveal))
-            add(to: menu, "Get Info", #selector(menuGetInfo))
-            add(to: menu, "Copy Path", #selector(menuCopyPath))
-            add(to: menu, "Exclude from Scan", #selector(menuExclude))
-            menu.addItem(.separator())
-            let trashTitle =
-                store.selectionHasProtected
-                ? "Move to Trash (protected items skipped)" : "Move to Trash"
-            add(to: menu, trashTitle, #selector(menuTrash))
-        }
-
-        private func add(to menu: NSMenu, _ title: String, _ action: Selector) {
-            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-            item.target = self
-            menu.addItem(item)
-        }
-
-        @objc private func menuOpen() { FileActions.open(store.urls(for: store.selection)) }
-        @objc private func menuReveal() { FileActions.reveal(store.urls(for: store.selection)) }
-        @objc private func menuCopyPath() { FileActions.copyPaths(store.urls(for: store.selection)) }
-        @objc private func menuGetInfo() { store.infoNode = store.selection.first }
-        @objc private func menuTrash() { store.isConfirmingTrash = true }
-        @objc private func menuExclude() { store.exclude(store.selection) }
 
         // MARK: Helpers
 

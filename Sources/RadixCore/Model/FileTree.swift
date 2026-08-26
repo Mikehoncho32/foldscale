@@ -12,18 +12,22 @@ public struct FileTree: Sendable {
     public static let none: NodeID = -1
 
     // Parallel arrays, each indexed by a NodeID in `0 ..< count`.
-    private let parentIDs: [NodeID]
-    private let firstChildIDs: [NodeID]
-    private let nextSiblingIDs: [NodeID]
-    private let ownSizes: [Int64]
+    //
+    // Invariant: every node's parent has a LOWER index than the node (nodes are
+    // appended in pre-order, and `replaceSubtree` appends whole subtrees at the
+    // end). `finish()` and `liveMask()` rely on it.
+    private var parentIDs: [NodeID]
+    private var firstChildIDs: [NodeID]
+    private var nextSiblingIDs: [NodeID]
+    private var ownSizes: [Int64]
     private var totalSizes: [Int64]
-    private let logicalSizes: [Int64]
+    private var logicalSizes: [Int64]
     private var itemCounts: [Int64]
-    private let modificationTimes: [Int64]
-    private let nodeFlags: [NodeFlags]
-    private let nameOffsets: [UInt32]
-    private let nameLengths: [UInt16]
-    private let nameStorage: [UInt8]
+    private var modificationTimes: [Int64]
+    private var nodeFlags: [NodeFlags]
+    private var nameOffsets: [UInt32]
+    private var nameLengths: [UInt16]
+    private var nameStorage: [UInt8]
     /// Nodes trashed since the scan, hidden from the live tree and its totals.
     private var removed: Set<NodeID> = []
 
@@ -32,6 +36,9 @@ public struct FileTree: Sendable {
 
     /// Total number of nodes in the tree.
     public var count: Int { parentIDs.count }
+
+    /// Whether the tree has no nodes at all.
+    public var isEmpty: Bool { parentIDs.isEmpty }
 
     init(
         parentIDs: [NodeID],
@@ -184,6 +191,167 @@ extension FileTree {
             ancestor = parentIDs[Int(ancestor)]
         }
     }
+}
+
+// MARK: - Live refresh (path lookup, liveness, subtree splice)
+
+extension FileTree {
+    /// Resolves a path (name components from the root, root = `[]`) to a live node.
+    /// Compares raw UTF-8 bytes against the shared name buffer, so walking a
+    /// 50k-entry directory allocates no per-child strings. Returns `nil` if any
+    /// component is missing or passes through a removed node.
+    public func node(atPathComponents components: [String]) -> NodeID? {
+        guard rootID != FileTree.none else { return nil }
+        var current = rootID
+        for component in components {
+            let bytes = Array(component.utf8)
+            var child = firstChildIDs[Int(current)]
+            var found = FileTree.none
+            while child != FileTree.none {
+                if !removed.contains(child), nameMatches(child, bytes) {
+                    found = child
+                    break
+                }
+                child = nextSiblingIDs[Int(child)]
+            }
+            guard found != FileTree.none else { return nil }
+            current = found
+        }
+        return current
+    }
+
+    /// One `Bool` per node: live iff not removed and its parent is live. A single
+    /// forward pass (parents precede children), so whole-tree queries such as the
+    /// smart lists can skip dead subtrees without a per-node ancestor walk.
+    public func liveMask() -> [Bool] {
+        var live = [Bool](repeating: true, count: count)
+        guard !removed.isEmpty else { return live }
+        for index in 0..<count {
+            let parent = parentIDs[index]
+            let parentLive = parent == FileTree.none || live[Int(parent)]
+            live[index] = parentLive && !removed.contains(NodeID(index))
+        }
+        return live
+    }
+
+    /// Splices a freshly scanned `subtree` in place of the directory `old`: the new
+    /// nodes are appended (preserving the index invariant), the parent's child chain
+    /// is rewired to the new root in the same position, `old` is marked removed
+    /// (its descendants become non-live), and every ancestor is re-totaled by the
+    /// delta. Returns the new node id, or `old` unchanged when the request is
+    /// invalid (the root, a dead node, a file, or an empty subtree).
+    ///
+    /// Known drift: a hard link whose first occurrence lies outside `subtree` is
+    /// counted again inside it until the next full refresh.
+    @discardableResult
+    public mutating func replaceSubtree(at old: NodeID, with subtree: FileTree) -> NodeID {
+        guard old != rootID, isLive(old), nodeFlags[Int(old)].contains(.directory),
+            subtree.rootID != FileTree.none, !subtree.isEmpty
+        else { return old }
+
+        let base = NodeID(count)
+        let nameBase = UInt32(nameStorage.count)
+        func shifted(_ id: NodeID) -> NodeID { id == FileTree.none ? FileTree.none : id + base }
+
+        parentIDs.append(contentsOf: subtree.parentIDs.map(shifted))
+        firstChildIDs.append(contentsOf: subtree.firstChildIDs.map(shifted))
+        nextSiblingIDs.append(contentsOf: subtree.nextSiblingIDs.map(shifted))
+        ownSizes.append(contentsOf: subtree.ownSizes)
+        totalSizes.append(contentsOf: subtree.totalSizes)
+        logicalSizes.append(contentsOf: subtree.logicalSizes)
+        itemCounts.append(contentsOf: subtree.itemCounts)
+        modificationTimes.append(contentsOf: subtree.modificationTimes)
+        nodeFlags.append(contentsOf: subtree.nodeFlags)
+        nameOffsets.append(contentsOf: subtree.nameOffsets.map { $0 + nameBase })
+        nameLengths.append(contentsOf: subtree.nameLengths)
+        nameStorage.append(contentsOf: subtree.nameStorage)
+
+        let new = subtree.rootID + base
+        let parent = parentIDs[Int(old)]
+        parentIDs[Int(new)] = parent
+        nextSiblingIDs[Int(new)] = nextSiblingIDs[Int(old)]
+
+        // Rewire through the RAW chain: a trashed sibling is still a link in it.
+        if firstChildIDs[Int(parent)] == old {
+            firstChildIDs[Int(parent)] = new
+        } else {
+            var previous = firstChildIDs[Int(parent)]
+            while previous != FileTree.none, nextSiblingIDs[Int(previous)] != old {
+                previous = nextSiblingIDs[Int(previous)]
+            }
+            if previous != FileTree.none { nextSiblingIDs[Int(previous)] = new }
+        }
+
+        // `old`'s totals are current (earlier removes already subtracted from it), and
+        // a node counts as 1 item of its parent in both trees, so the deltas are exact.
+        let bytesDelta = totalSizes[Int(new)] - totalSizes[Int(old)]
+        let itemsDelta = itemCounts[Int(new)] - itemCounts[Int(old)]
+        removed.insert(old)
+        var ancestor = parent
+        while ancestor != FileTree.none {
+            totalSizes[Int(ancestor)] += bytesDelta
+            itemCounts[Int(ancestor)] += itemsDelta
+            ancestor = parentIDs[Int(ancestor)]
+        }
+        return new
+    }
+
+    private func nameMatches(_ node: NodeID, _ bytes: [UInt8]) -> Bool {
+        let start = Int(nameOffsets[Int(node)])
+        let length = Int(nameLengths[Int(node)])
+        guard length == bytes.count else { return false }
+        return nameStorage[start..<start + length].elementsEqual(bytes)
+    }
+}
+
+// MARK: - Non-allocating traversal (for whole-tree queries such as the smart lists)
+
+extension FileTree {
+    /// The node's name as raw UTF-8 bytes — a slice of the shared buffer, so
+    /// matching extensions or names over millions of nodes allocates nothing.
+    public func nameUTF8(of node: NodeID) -> ArraySlice<UInt8> {
+        let start = Int(nameOffsets[Int(node)])
+        let length = Int(nameLengths[Int(node)])
+        return nameStorage[start..<start + length]
+    }
+
+    /// Calls `body` for each live child, in insertion order, without building an array.
+    public func forEachChild(of node: NodeID, _ body: (NodeID) -> Void) {
+        var child = firstChildIDs[Int(node)]
+        while child != FileTree.none {
+            if !removed.contains(child) { body(child) }
+            child = nextSiblingIDs[Int(child)]
+        }
+    }
+
+    /// Pre-order walk over live descendants. `visit` returns whether to descend into
+    /// that node (ignored for files), which lets callers prune bundles or subtrees.
+    /// Iterative (a resume stack of sibling links), so tree depth can't overflow
+    /// the stack and no per-directory arrays are allocated.
+    public func forEachDescendant(of node: NodeID, _ visit: (NodeID) -> Bool) {
+        var resume: [NodeID] = []
+        var current = firstChildIDs[Int(node)]
+        while true {
+            if current == FileTree.none {
+                guard let next = resume.popLast() else { return }
+                current = next
+                continue
+            }
+            let sibling = nextSiblingIDs[Int(current)]
+            if !removed.contains(current), visit(current), nodeFlags[Int(current)].contains(.directory) {
+                let firstChild = firstChildIDs[Int(current)]
+                if firstChild != FileTree.none {
+                    resume.append(sibling)
+                    current = firstChild
+                    continue
+                }
+            }
+            current = sibling
+        }
+    }
+
+    /// Whether the node is a directory (cheaper than reading `flags(of:)` in hot loops).
+    public func isDirectory(_ node: NodeID) -> Bool { nodeFlags[Int(node)].contains(.directory) }
 }
 
 /// Builds a ``FileTree`` (struct-of-arrays) from a depth-first scan stream.
@@ -390,6 +558,18 @@ extension FileTree: Codable {
         guard sameLength else { throw fail("inconsistent array lengths") }
         guard tree.rootID == FileTree.none || (tree.rootID >= 0 && Int(tree.rootID) < count) else {
             throw fail("root id out of range")
+        }
+        // Every link must be `.none` or a valid index, and parents must precede
+        // children (the pre-order invariant the traversals rely on).
+        for index in 0..<count {
+            let parent = tree.parentIDs[index]
+            guard parent == FileTree.none || (parent >= 0 && Int(parent) < index) else {
+                throw fail("parent link out of range or after its child")
+            }
+            for link in [tree.firstChildIDs[index], tree.nextSiblingIDs[index]]
+            where link != FileTree.none && (link < 0 || Int(link) >= count) {
+                throw fail("child/sibling link out of range")
+            }
         }
         let storageCount = tree.nameStorage.count
         for index in 0..<count
