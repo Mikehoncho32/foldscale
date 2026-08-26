@@ -1,4 +1,4 @@
-// Generates Radix's 1024×1024 app icon: a rounded accent square with the app's
+// Generates Foldscale's 1024×1024 app icon: a rounded accent square with the app's
 // signature motif — descending size bars. Run: swift Scripts/make-icon.swift <out.png>
 import CoreGraphics
 import Foundation

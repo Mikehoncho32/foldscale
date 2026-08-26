@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Notarizes and staples a Radix DMG. This is the ONE step that needs an Apple
+# Notarizes and staples a Foldscale DMG. This is the ONE step that needs an Apple
 # Developer account — a paid membership with a "Developer ID Application"
 # certificate. Until this is run, downloads open via right-click → Open (Gatekeeper).
 #
-#   ./Scripts/notarize.sh dist/Radix-1.1.0.dmg
+#   ./Scripts/notarize.sh dist/Foldscale-<version>.dmg
 #
 # Prefer the one-shot pipeline: NOTARY_PROFILE=radix-notary CODE_SIGN_IDENTITY=... \
 #   Scripts/build-dmg.sh <version>   (notarizes and staples both the app and the DMG)

@@ -163,7 +163,7 @@ Tidy/
 - Confirmation sheet required for every trash action. Shows count + total allocated bytes.
 - Refuse to trash anything under `/System`, `/Library`, `/usr`, `/bin`, `/sbin`, `/private`, `/Applications/Utilities`, the app's own bundle, or `~/Library/Application Support/Tidy`. Show "protected" state instead of a disabled button.
 - Never auto-scan on launch unless the user previously chose a target and opted in.
-  > **Amendment (2026-08-25):** after the user has scanned a root, Radix refreshes that same root in
+  > **Amendment (2026-08-25):** after the user has scanned a root, Foldscale refreshes that same root in
   > the background on launch (keeping the cached view visible) — a default-on preference that the
   > user can turn off in Settings. A first scan is still always an explicit user action.
 

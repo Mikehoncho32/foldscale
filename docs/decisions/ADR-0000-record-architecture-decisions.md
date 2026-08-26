@@ -5,7 +5,7 @@
 
 ## Context
 
-Radix makes several performance- and correctness-critical decisions that are only defensible with
+Foldscale makes several performance- and correctness-critical decisions that are only defensible with
 evidence — e.g. the file-node memory layout, the tree-view rendering backend, and the scan-cache
 format (see the handoff, §7). Contributors reading the code later need to understand *why* a fork was
 taken, not just *what* was chosen, so they don't relitigate settled trade-offs or regress them.

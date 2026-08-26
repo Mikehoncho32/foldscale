@@ -8,11 +8,11 @@ Describe the change and the problem it solves. Link the milestone or issue.
 
 - [ ] `swift test` passes
 - [ ] `swiftlint --strict` and `swift format lint --strict --recursive Sources Tests` pass
-- [ ] App still builds: `xcodegen generate && xcodebuild -project Radix.xcodeproj -scheme RadixApp -destination 'platform=macOS' build`
+- [ ] App still builds: `xcodegen generate && xcodebuild -project Foldscale.xcodeproj -scheme FoldscaleApp -destination 'platform=macOS' build`
 - [ ] No `removeItem(` added; deletion still routes through `FileManager.trashItem`
-- [ ] `RadixCore` still free of `import SwiftUI` / `import AppKit`
+- [ ] `FoldscaleCore` still free of `import SwiftUI` / `import AppKit`
 - [ ] If a benchmarked decision changed, an ADR in `docs/decisions/` is added/updated with numbers
-- [ ] Public `RadixCore` types have doc comments
+- [ ] Public `FoldscaleCore` types have doc comments
 
 ## Performance impact (if scan hot path or tree view)
 
