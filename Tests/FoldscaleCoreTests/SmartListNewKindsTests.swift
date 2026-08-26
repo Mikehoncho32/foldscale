@@ -92,8 +92,15 @@ final class SmartListNewKindsTests: XCTestCase {
 
     // MARK: - Virtual machines
 
-    func testVirtualMachinesFindsDocumentsByPathAndSuffixAndMarksEnginesInformational() {
-        let tree = SmartListFixture.build([
+    /// Nested folders for each path component with `leaf` inside the innermost.
+    private func nested(_ path: [String], _ leaf: Spec) -> Spec {
+        path.reversed().reduce(leaf) { inner, name in .dir(name, [inner]) }
+    }
+
+    /// A home folder with VMs from every supported tool, one below the floor, one
+    /// relocated, and engine disks for Docker and Lima.
+    private func virtualMachineTree() -> FileTree {
+        SmartListFixture.build([
             SmartListFixture.home([
                 .dir(
                     "Parallels",
@@ -101,23 +108,15 @@ final class SmartListNewKindsTests: XCTestCase {
                         .dir("Windows 11.pvm", mtimeDaysAgo: 20, [.file("disk.hdd", bytes: 40 * gigabyte)]),
                         .dir("tiny.pvm", [.file("disk.hdd", bytes: 5 * megabyte)]),
                     ]),
-                .dir(
-                    "Documents",
-                    [
-                        .dir(
-                            "VMs",
-                            [
-                                .dir(
-                                    "macOS test.vmwarevm", mtimeDaysAgo: 60,
-                                    [.file("disk.vmdk", bytes: 30 * gigabyte)])
-                            ]),
-                        .dir(
-                            "Parallels",
-                            [.dir("Ubuntu.pvm", mtimeDaysAgo: 5, [.file("disk.hdd", bytes: 9 * gigabyte)])]),
-                    ]),
-                .dir(
-                    "VirtualBox VMs",
-                    [.dir("win10", mtimeDaysAgo: 300, [.file("win10.vdi", bytes: 25 * gigabyte)])]),
+                nested(
+                    ["Documents", "VMs"],
+                    .dir("macOS test.vmwarevm", mtimeDaysAgo: 60, [.file("disk.vmdk", bytes: 30 * gigabyte)])),
+                nested(
+                    ["Documents", "Parallels"],
+                    .dir("Ubuntu.pvm", mtimeDaysAgo: 5, [.file("disk.hdd", bytes: 9 * gigabyte)])),
+                nested(
+                    ["VirtualBox VMs"],
+                    .dir("win10", mtimeDaysAgo: 300, [.file("win10.vdi", bytes: 25 * gigabyte)])),
                 .dir(
                     ".lima",
                     [
@@ -130,49 +129,23 @@ final class SmartListNewKindsTests: XCTestCase {
                         .dir(
                             "Containers",
                             [
-                                .dir(
-                                    "com.docker.docker",
-                                    [
-                                        .dir(
-                                            "Data",
-                                            [
-                                                .dir(
-                                                    "vms",
-                                                    [
-                                                        .dir(
-                                                            "0",
-                                                            [
-                                                                .dir(
-                                                                    "data",
-                                                                    [
-                                                                        .file(
-                                                                            "Docker.raw", bytes: 60 * gigabyte
-                                                                        )
-                                                                    ])
-                                                            ])
-                                                    ])
-                                            ])
-                                    ]),
-                                .dir(
-                                    "com.utmapp.UTM",
-                                    [
-                                        .dir(
-                                            "Data",
-                                            [
-                                                .dir(
-                                                    "Documents",
-                                                    [
-                                                        .dir(
-                                                            "Fedora.utm", mtimeDaysAgo: 2,
-                                                            [.file("disk.qcow2", bytes: 12 * gigabyte)])
-                                                    ])
-                                            ])
-                                    ]),
+                                nested(
+                                    ["com.docker.docker", "Data", "vms", "0", "data"],
+                                    .file("Docker.raw", bytes: 60 * gigabyte)),
+                                nested(
+                                    ["com.utmapp.UTM", "Data", "Documents"],
+                                    .dir(
+                                        "Fedora.utm", mtimeDaysAgo: 2,
+                                        [.file("disk.qcow2", bytes: 12 * gigabyte)])),
                             ])
                     ]),
                 .dir("Movies", [.dir("Not a VM.pvm", [.file("clip.mov", bytes: 1 * gigabyte)])]),
             ])
         ])
+    }
+
+    func testVirtualMachinesFindsDocumentsByPathAndSuffixAndMarksEnginesInformational() {
+        let tree = virtualMachineTree()
         let result = SmartListFixture.compute(.virtualMachines, tree)
 
         XCTAssertEqual(result.groups, ["Virtual machines", "Containers"])

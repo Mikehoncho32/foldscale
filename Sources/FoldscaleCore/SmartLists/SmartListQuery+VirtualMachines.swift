@@ -13,6 +13,11 @@ extension SmartListQuery {
         "Library/Containers/com.utmapp.UTM/Data/Documents",
     ]
 
+    /// Folders whose plain sub-folders are each one machine.
+    static let vmMachineFolders = [
+        (path: "VirtualBox VMs", tool: "VirtualBox"), (path: ".tart/vms", tool: "Tart"),
+    ]
+
     /// Engine-managed data: trashing it breaks the tool, so it's informational with a
     /// pointer to where the tool itself frees space.
     static let containerEngines: [(path: String, note: String)] = [
@@ -29,22 +34,38 @@ extension SmartListQuery {
     /// first — they're yours to delete), plus the disks behind Docker, OrbStack, Lima
     /// and colima (informational — managed by the tool).
     mutating func virtualMachines() -> ([SmartListEntry], [String]) {
-        var entries: [SmartListEntry] = []
         var seen = Set<FileTree.NodeID>()
+        var entries: [SmartListEntry] = []
+        entries += vmDocumentEntries(seen: &seen)
+        entries += vmMachineEntries(seen: &seen)
+        entries += containerEngineEntries(seen: &seen)
+        entries += limaEntries(seen: &seen)
+        entries += relocatedVMEntries(seen: &seen)
+        return (entries, [Self.vmGroup, Self.containersGroup])
+    }
 
+    /// `.pvm` / `.vmwarevm` / `.utm` bundles in the folders their tools use.
+    private func vmDocumentEntries(seen: inout Set<FileTree.NodeID>) -> [SmartListEntry] {
+        var entries: [SmartListEntry] = []
         for folder in Self.vmDocumentFolders {
             guard let root = node(at: home(folder)) else { continue }
             tree.forEachChild(of: root) { child in
                 if let entry = vmDocumentEntry(child, seen: &seen) { entries.append(entry) }
             }
         }
-        for (folder, tool) in [("VirtualBox VMs", "VirtualBox"), (".tart/vms", "Tart")] {
-            guard let root = node(at: home(folder)) else { continue }
+        return entries
+    }
+
+    /// VirtualBox and Tart keep one plain folder per machine, plus Tart's image cache.
+    private func vmMachineEntries(seen: inout Set<FileTree.NodeID>) -> [SmartListEntry] {
+        var entries: [SmartListEntry] = []
+        for folder in Self.vmMachineFolders {
+            guard let root = node(at: home(folder.path)) else { continue }
             tree.forEachChild(of: root) { child in
                 guard tree.isDirectory(child), isBigEnough(child), seen.insert(child).inserted else { return }
                 entries.append(
                     SmartListEntry(
-                        node: child, group: Self.vmGroup, note: "\(tool) · used \(age(of: child))",
+                        node: child, group: Self.vmGroup, note: "\(folder.tool) · used \(age(of: child))",
                         safety: .reviewFirst))
             }
         }
@@ -54,7 +75,11 @@ extension SmartListQuery {
                     node: cache, group: Self.vmGroup, note: "Downloaded images; Tart re-pulls them",
                     safety: .reviewFirst))
         }
+        return entries
+    }
 
+    private func containerEngineEntries(seen: inout Set<FileTree.NodeID>) -> [SmartListEntry] {
+        var entries: [SmartListEntry] = []
         for engine in Self.containerEngines {
             guard let node = node(at: home(engine.path)), isBigEnough(node), seen.insert(node).inserted
             else { continue }
@@ -62,32 +87,40 @@ extension SmartListQuery {
                 SmartListEntry(
                     node: node, group: Self.containersGroup, note: engine.note, safety: .informational))
         }
-        if let lima = node(at: home(".lima")) {
-            tree.forEachChild(of: lima) { instance in
-                let name = tree.name(of: instance)
-                guard tree.isDirectory(instance), !name.hasPrefix("_"), isBigEnough(instance),
-                    seen.insert(instance).inserted
-                else { return }
-                entries.append(
-                    SmartListEntry(
-                        node: instance, group: Self.containersGroup,
-                        note: "Lima instance · `limactl delete \(name)`", safety: .informational))
-            }
-        }
+        return entries
+    }
 
-        // VM documents people moved elsewhere in their home folder (not Library, not
-        // dot-folders), a few levels down.
-        if let homeNode = node(at: context.homePath) {
-            tree.forEachChild(of: homeNode) { child in
-                let name = tree.name(of: child)
-                guard tree.isDirectory(child), name != "Library", !name.hasPrefix(".") else { return }
-                if let entry = vmDocumentEntry(child, seen: &seen) { entries.append(entry) }
-                walk(child, maxDepth: 2) { nested in
-                    if let entry = vmDocumentEntry(nested, seen: &seen) { entries.append(entry) }
-                }
+    /// `~/.lima/<instance>` (its `_*` folders are config, not machines).
+    private func limaEntries(seen: inout Set<FileTree.NodeID>) -> [SmartListEntry] {
+        var entries: [SmartListEntry] = []
+        guard let lima = node(at: home(".lima")) else { return entries }
+        tree.forEachChild(of: lima) { instance in
+            let name = tree.name(of: instance)
+            guard tree.isDirectory(instance), !name.hasPrefix("_"), isBigEnough(instance),
+                seen.insert(instance).inserted
+            else { return }
+            entries.append(
+                SmartListEntry(
+                    node: instance, group: Self.containersGroup,
+                    note: "Lima instance · `limactl delete \(name)`", safety: .informational))
+        }
+        return entries
+    }
+
+    /// VM documents people moved elsewhere in their home folder (not Library, not
+    /// dot-folders), a few levels down.
+    private func relocatedVMEntries(seen: inout Set<FileTree.NodeID>) -> [SmartListEntry] {
+        var entries: [SmartListEntry] = []
+        guard let homeNode = node(at: context.homePath) else { return entries }
+        tree.forEachChild(of: homeNode) { child in
+            let name = tree.name(of: child)
+            guard tree.isDirectory(child), name != "Library", !name.hasPrefix(".") else { return }
+            if let entry = vmDocumentEntry(child, seen: &seen) { entries.append(entry) }
+            walk(child, maxDepth: 2) { nested in
+                if let entry = vmDocumentEntry(nested, seen: &seen) { entries.append(entry) }
             }
         }
-        return (entries, [Self.vmGroup, Self.containersGroup])
+        return entries
     }
 
     private func isBigEnough(_ node: FileTree.NodeID) -> Bool {
