@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/Mikehoncho32/foldscale/discussions
+    about: Ask how something works or float a feature idea in Discussions — issues are for bugs and concrete requests.

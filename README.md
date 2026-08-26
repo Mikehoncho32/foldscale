@@ -19,6 +19,7 @@
 <p align="center">
   <a href="https://foldscale.com/"><strong>foldscale.com</strong></a> ·
   <a href="../../releases/latest">Download</a> ·
+  <a href="../../discussions">Discussions</a> ·
   <code>brew install --cask mikehoncho32/foldscale/foldscale</code>
 </p>
 
