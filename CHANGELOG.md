@@ -6,6 +6,8 @@ releasing. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-26
+
 ### Added
 - **Five more lists in the sidebar.** *App leftovers* (Clean Up): support data, containers and
   group containers left behind by apps that aren't installed anymore — review first, nothing is
@@ -82,7 +84,8 @@ First release (as Radix, unsigned).
 - Smart lists (Large files, Old and big); sidebar Favorites + Volumes.
 - Remembers the last scan and reloads it instantly.
 
-[Unreleased]: https://github.com/Mikehoncho32/foldscale/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/Mikehoncho32/foldscale/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.4.0
 [1.3.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.3.0
 [1.2.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.2.0
 [1.1.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.1.0

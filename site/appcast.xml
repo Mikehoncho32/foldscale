@@ -8,6 +8,30 @@
     <language>en</language>
     <!-- items:begin -->
     <item>
+      <title>Foldscale 1.4.0</title>
+      <pubDate>Wed, 26 Aug 2026 21:17:42 +0000</pubDate>
+      <sparkle:version>5</sparkle:version>
+      <sparkle:shortVersionString>1.4.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <link>https://github.com/Mikehoncho32/foldscale/releases/tag/v1.4.0</link>
+      <description><![CDATA[<h3 dir="auto">Added</h3>
+<ul dir="auto">
+<li><strong>Five more lists in the sidebar.</strong> <em>App leftovers</em> (Clean Up): support data, containers and<br>
+group containers left behind by apps that aren't installed anymore — review first, nothing is<br>
+pre-ticked. <em>Phone backups</em>: iPhone and iPad backups by device name and date, archived copies<br>
+marked. <em>Virtual machines</em>: Parallels, VMware Fusion, UTM, VirtualBox and Tart machines, plus the<br>
+disks behind Docker, OrbStack, Lima and colima (with where to shrink them). <em>Media libraries</em>:<br>
+Photos, Music, TV, Podcasts, Books, iMovie, Lightroom and friends — informational, with where to<br>
+remove items. <em>Cloud files</em>: iCloud Drive, Dropbox, Google Drive, OneDrive and Box — what's on<br>
+this Mac versus online-only, per account. Empty lists stay hidden.</li>
+<li><strong>What grew</strong> (What's Here): folders that got at least 500 MB bigger since an earlier scan,<br>
+grouped by last week / last month / longer, with the growth and the date it's measured from.<br>
+Foldscale now keeps a small size history (<code class="notranslate">size-history.plist</code>, a few MB at most, thinned to<br>
+90 days) next to its scan cache; the list appears once you've used the app on two different days.</li>
+</ul>]]></description>
+      <enclosure url="https://github.com/Mikehoncho32/foldscale/releases/download/v1.4.0/Foldscale-1.4.0.dmg" length="3053581" type="application/octet-stream" sparkle:edSignature="G768EmdmxPwzVA/j0UxDMcfb2bSkysceo+hHzXlFntr2WqbWCckndzvHWfvbEx7CBf+xmVkthRgaMeAUDcnfAA=="/>
+    </item>
+    <item>
       <title>Foldscale 1.3.0</title>
       <pubDate>Wed, 26 Aug 2026 19:41:52 +0000</pubDate>
       <sparkle:version>4</sparkle:version>
