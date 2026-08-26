@@ -48,7 +48,7 @@ struct SidebarView: View {
         -> some View
     {
         let kinds = SmartListKind.allCases.filter { kind in
-            kind.section == section && (store.smartLists[kind]?.totalBytes ?? 0) > 0
+            kind.section == section && (store.smartLists[kind]?.displayBytes ?? 0) > 0
         }
         let showsFreeUp = section == .cleanUp && store.tree != nil
         if !kinds.isEmpty || showsFreeUp {
@@ -60,7 +60,7 @@ struct SidebarView: View {
                 }
                 ForEach(kinds, id: \.self) { kind in
                     treeRow(
-                        name: kind.title, bytes: store.smartLists[kind]?.totalBytes ?? 0,
+                        name: kind.title, bytes: store.smartLists[kind]?.displayBytes ?? 0,
                         icon: kind.systemImage
                     )
                     .tag(SidebarItem.smartList(kind))

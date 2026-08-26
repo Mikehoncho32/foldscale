@@ -548,11 +548,14 @@ final class ScanStore {
         let expected = generation
         let context = SmartListContext(
             rootPath: rootURL.path, homePath: FileManager.default.homeDirectoryForCurrentUser.path)
+        // The demo drive has no real bundles to read; canned metadata stands in.
+        let provider: any BundleInfoProvider = isDemo ? DemoMetadataProvider() : DiskBundleInfoProvider()
         smartListTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: Self.smartListDebounceNanos)
             guard !Task.isCancelled else { return }
             let results = await Task.detached(priority: .utility) {
-                SmartListEngine.computeAll(in: tree, context: context, isCancelled: { Task.isCancelled })
+                SmartListEngine.computeAll(
+                    in: tree, context: context, bundleInfo: provider, isCancelled: { Task.isCancelled })
             }.value
             guard !Task.isCancelled, let self, self.generation == expected, !results.isEmpty else { return }
             self.smartLists = results

@@ -139,17 +139,21 @@ public enum FreeUpPlanner {
         case .developerJunk: return group == "Build output" ? 0 : 1
         case .cachesAndTrash: return 2
         case .downloads: return group == "Installers & archives" ? 3 : 4
-        case .appsAndGames, .bigProjects, .videos: return 5
+        case .appsAndGames, .bigProjects, .videos, .phoneBackups, .virtualMachines: return 5
         }
     }
 
+    /// Review-first order: forgotten downloads first, then recordings, projects,
+    /// other videos, phone backups, games, apps, virtual machines.
     private static func reviewPriority(_ kind: SmartListKind, _ group: String) -> Int {
         switch kind {
         case .downloads: return 0
-        case .videos: return group == "Recordings" ? 1 : 3
-        case .bigProjects: return 2
-        case .appsAndGames: return group == "Games" ? 4 : 5
-        case .cachesAndTrash, .developerJunk: return 5
+        case .videos: return group == "Recordings" ? 2 : 4
+        case .bigProjects: return 3
+        case .phoneBackups: return 5
+        case .appsAndGames: return group == "Games" ? 6 : 7
+        case .virtualMachines: return 8
+        case .cachesAndTrash, .developerJunk: return 9
         }
     }
 }

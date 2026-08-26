@@ -25,7 +25,7 @@ enum DemoTree {
                 gen.blob("Audio", 600 * mb, files: 300, days: 200)
                 gen.blob("Fonts", 120 * mb, files: 400, days: 300)
             }
-            gen.dir("System", days: 20) { gen in gen.blob("Library", 11_200 * mb, files: 25_000, days: 20) }
+            gen.dir("System", days: 20) { gen in gen.blob("Library", 8_200 * mb, files: 25_000, days: 20) }
             gen.dir("private", days: 1) { gen in
                 gen.dir("var", days: 1) { gen in
                     gen.blob("vm", 3_000 * mb, files: 2, days: 0)
@@ -43,7 +43,7 @@ enum DemoTree {
 
     private static func applications(_ gen: inout Generator) {
         gen.dir("Applications", days: 4) { gen in
-            gen.blob("Xcode.app", 12_400 * mb, files: 20_000, days: 20)
+            gen.blob("Xcode.app", 9_900 * mb, files: 20_000, days: 20)
             gen.blob("Final Cut Pro.app", 3_900 * mb, files: 2_200, days: 45)
             gen.blob("Microsoft Word.app", 2_100 * mb, files: 1_800, days: 15)
             gen.blob("Microsoft Excel.app", 1_900 * mb, files: 1_700, days: 15)
@@ -65,9 +65,9 @@ enum DemoTree {
     private static func home(_ gen: inout Generator) {
         gen.dir("Movies", days: 12) { gen in
             gen.dir("Summer Trip 2026.fcpbundle", days: 12) { gen in
-                gen.blob("Render Files", 7_900 * mb, files: 420, days: 12, ext: ".mov")
-                gen.blob("Transcoded Media", 5_100 * mb, files: 160, days: 14, ext: ".mov")
-                gen.blob("Original Media", 4_800 * mb, files: 140, days: 18, ext: ".MOV")
+                gen.blob("Render Files", 5_900 * mb, files: 420, days: 12, ext: ".mov")
+                gen.blob("Transcoded Media", 3_600 * mb, files: 160, days: 14, ext: ".mov")
+                gen.blob("Original Media", 3_800 * mb, files: 140, days: 18, ext: ".MOV")
                 gen.file("CurrentVersion.fcpevent", 12 * mb, days: 12)
             }
             gen.dir("Drone footage", days: 60) { gen in
@@ -82,7 +82,7 @@ enum DemoTree {
         library(&gen)
         developer(&gen)
         gen.dir("Downloads", days: 1) { gen in
-            gen.file("raw-photos-June.zip", 4_700 * mb, days: 62)
+            gen.file("raw-photos-June.zip", 3_700 * mb, days: 62)
             gen.file("Xcode_16.4.xip", 3_200 * mb, days: 88)
             gen.file("ubuntu-24.04-live-server-arm64.iso", 2_100 * mb, days: 140)
             gen.file("lecture-recording.mp4", 1_900 * mb, days: 51)
@@ -96,7 +96,7 @@ enum DemoTree {
             gen.file("Invoice-2026-07.pdf", 200 * kb, days: 20)
         }
         gen.dir("Pictures", days: 5) { gen in
-            gen.blob("Photos Library.photoslibrary", 11_200 * mb, files: 8_000, days: 1, ext: ".heic")
+            gen.blob("Photos Library.photoslibrary", 8_200 * mb, files: 8_000, days: 1, ext: ".heic")
             gen.blob("Lightroom", 800 * mb, files: 260, days: 40, ext: ".dng")
         }
         gen.dir("Documents", days: 2) { gen in
@@ -121,6 +121,9 @@ enum DemoTree {
             gen.file("Screenshot 2026-08-12 at 09.14.55.png", 4 * mb, days: 14)
         }
         gen.dir("Applications", days: 50) { gen in gen.blob("Arc.app", 480 * mb, files: 300, days: 50) }
+        gen.dir("Parallels", days: 21) { gen in
+            gen.blob("Windows 11.pvm", 16_000 * mb, files: 12, days: 21, ext: ".hdd")
+        }
         gen.blob("Public", 1 * mb, files: 3, days: 500)
         gen.file(".zsh_history", 400 * kb, days: 0)
     }
@@ -131,7 +134,7 @@ enum DemoTree {
                 gen.dir("Steam", days: 5) { gen in
                     gen.dir("steamapps", days: 5) { gen in
                         gen.dir("common", days: 5) { gen in
-                            gen.blob("Hades II", 8_900 * mb, files: 3_200, days: 5)
+                            gen.blob("Hades II", 6_400 * mb, files: 3_200, days: 5)
                             gen.blob("Hollow Knight Silksong", 4_600 * mb, files: 2_100, days: 40)
                             gen.blob("Stardew Valley", 1_200 * mb, files: 1_400, days: 300)
                         }
@@ -143,6 +146,13 @@ enum DemoTree {
                 gen.blob("Slack", 860 * mb, files: 1_200, days: 0)
                 gen.blob("discord", 710 * mb, files: 800, days: 0)
                 gen.blob("Zoom", 310 * mb, files: 200, days: 25)
+                gen.dir("MobileSync", days: 95) { gen in
+                    gen.dir("Backup", days: 95) { gen in
+                        gen.blob("00008030-000A4D1E0C28802E", 14_200 * mb, files: 41_000, days: 95)
+                        gen.blob(
+                            "00008030-000A4D1E0C28802E-20260401-091500", 6_400 * mb, files: 26_000, days: 147)
+                    }
+                }
             }
             gen.dir("Caches", days: 0) { gen in
                 gen.blob("Homebrew", 2_000 * mb, files: 260, days: 8)
@@ -153,23 +163,37 @@ enum DemoTree {
             }
             gen.dir("Developer", days: 2) { gen in
                 gen.dir("Xcode", days: 2) { gen in
-                    gen.blob("DerivedData", 5_100 * mb, files: 12_000, days: 2)
+                    gen.blob("DerivedData", 4_100 * mb, files: 12_000, days: 2)
                     gen.blob("Archives", 1_500 * mb, files: 60, days: 30)
                 }
                 gen.dir("CoreSimulator", days: 10) { gen in
                     gen.blob("Devices", 1_300 * mb, files: 2_800, days: 10)
                 }
             }
-            gen.blob("Containers", 1_100 * mb, files: 2_600, days: 0)
+            containers(&gen)
             gen.blob("Mail", 900 * mb, files: 9_000, days: 0)
             gen.blob("Logs", 340 * mb, files: 700, days: 0)
+        }
+    }
+
+    /// `~/Library/Containers`: Docker's VM disk, a UTM machine, and two Apple containers.
+    private static func containers(_ gen: inout Generator) {
+        gen.dir("Containers", days: 0) { gen in
+            gen.nest(["com.docker.docker", "Data", "vms", "0", "data"], days: 2) { gen in
+                gen.file("Docker.raw", 5_900 * mb, days: 2)
+            }
+            gen.nest(["com.utmapp.UTM", "Data", "Documents"], days: 12) { gen in
+                gen.blob("Ubuntu 24.04.utm", 6_500 * mb, files: 6, days: 12, ext: ".qcow2")
+            }
+            gen.blob("com.apple.mail", 700 * mb, files: 2_000, days: 0)
+            gen.blob("com.apple.Safari", 300 * mb, files: 600, days: 0)
         }
     }
 
     private static func developer(_ gen: inout Generator) {
         gen.dir("Developer", days: 0) { gen in
             gen.dir("ml-experiments", days: 9) { gen in
-                gen.blob("data", 7_600 * mb, files: 120, days: 9, ext: ".parquet")
+                gen.blob("data", 5_600 * mb, files: 120, days: 9, ext: ".parquet")
                 gen.blob(".venv", 1_900 * mb, files: 21_000, days: 9)
                 gen.blob("notebooks", 820 * mb, files: 30, days: 9, ext: ".ipynb")
                 gen.blob(".git", 60 * mb, files: 600, days: 9)

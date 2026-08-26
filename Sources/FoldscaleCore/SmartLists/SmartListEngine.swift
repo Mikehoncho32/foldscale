@@ -12,10 +12,12 @@ public enum SmartListEngine {
         bundleInfo: BundleInfoProvider = DiskBundleInfoProvider(), now: Date = Date(),
         isCancelled: () -> Bool = { false }
     ) -> [SmartListKind: SmartListResult] {
+        // One query for every list, so lookups (installed apps, plist reads) are shared.
+        var query = SmartListQuery(tree: tree, context: context, bundleInfo: bundleInfo, now: now)
         var results: [SmartListKind: SmartListResult] = [:]
         for kind in SmartListKind.allCases {
             if isCancelled() { return [:] }
-            results[kind] = compute(kind, in: tree, context: context, bundleInfo: bundleInfo, now: now)
+            results[kind] = run(kind, on: &query)
         }
         return results
     }
@@ -25,6 +27,10 @@ public enum SmartListEngine {
         bundleInfo: BundleInfoProvider = DiskBundleInfoProvider(), now: Date = Date()
     ) -> SmartListResult {
         var query = SmartListQuery(tree: tree, context: context, bundleInfo: bundleInfo, now: now)
+        return run(kind, on: &query)
+    }
+
+    private static func run(_ kind: SmartListKind, on query: inout SmartListQuery) -> SmartListResult {
         let (entries, groups): ([SmartListEntry], [String])
         switch kind {
         case .downloads: (entries, groups) = query.downloads()
@@ -33,11 +39,15 @@ public enum SmartListEngine {
         case .appsAndGames: (entries, groups) = query.appsAndGames()
         case .bigProjects: (entries, groups) = query.bigProjects()
         case .videos: (entries, groups) = query.videos()
+        case .phoneBackups: (entries, groups) = query.phoneBackups()
+        case .virtualMachines: (entries, groups) = query.virtualMachines()
         }
         let ranked = entries.sorted { query.weight($0) > query.weight($1) }
         let total = ranked.filter { $0.safety != .informational }.reduce(Int64(0)) { $0 + query.weight($1) }
+        let footprint = ranked.reduce(Int64(0)) { $0 + query.weight($1) }
         let usedGroups = groups.filter { group in ranked.contains { $0.group == group } }
-        return SmartListResult(kind: kind, entries: ranked, groups: usedGroups, totalBytes: total)
+        return SmartListResult(
+            kind: kind, entries: ranked, groups: usedGroups, totalBytes: total, footprintBytes: footprint)
     }
 }
 
@@ -54,6 +64,10 @@ struct SmartListQuery {
     /// Support-data folders already attributed to an app, so two apps sharing a
     /// folder (or the same app installed twice) never count it twice.
     var claimedSupportNodes: Set<FileTree.NodeID> = []
+    /// `Info.plist` reads, memoized per app and capped so a machine with thousands
+    /// of bundles never turns list computation into a plist crawl.
+    var bundleInfoCache: [FileTree.NodeID: BundleInfo?] = [:]
+    static let bundleInfoReadLimit = 400
 
     init(tree: FileTree, context: SmartListContext, bundleInfo: BundleInfoProvider, now: Date) {
         self.tree = tree
@@ -62,9 +76,19 @@ struct SmartListQuery {
         self.now = now
     }
 
-    /// An entry's ranking weight: its own size plus any attached bytes.
+    /// An entry's ranking weight: its own size plus any attached bytes, unless the
+    /// list ranks by something else (growth).
     func weight(_ entry: SmartListEntry) -> Int64 {
-        tree.totalAllocatedSize(of: entry.node) + entry.extraBytes
+        entry.sortBytes ?? (tree.totalAllocatedSize(of: entry.node) + entry.extraBytes)
+    }
+
+    /// Bundle metadata for an app, read at most once per computation.
+    mutating func bundleInfo(for app: FileTree.NodeID) -> BundleInfo? {
+        if let cached = bundleInfoCache[app] { return cached }
+        guard bundleInfoCache.count < Self.bundleInfoReadLimit else { return nil }
+        let info = bundleInfo.info(forBundleAt: context.absolutePath(of: app, in: tree))
+        bundleInfoCache[app] = info
+        return info
     }
 
     // MARK: Shared helpers
@@ -152,9 +176,13 @@ enum SmartListBytes {
     private static func lowercased(_ byte: UInt8) -> UInt8 { byte >= 65 && byte <= 90 ? byte + 32 : byte }
 
     static let appSuffix = bytes(".app")
-    static let libraryBundleSuffixes = bytes([
-        ".photoslibrary", ".imovielibrary", ".fcpbundle", ".logicx", ".musiclibrary", ".tvlibrary",
-    ])
+    /// Virtual-machine documents: opaque bundles holding a disk image.
+    static let vmBundleSuffixes = bytes([".pvm", ".vmwarevm", ".utm"])
+    /// Opaque bundles nothing should descend into or list pieces of.
+    static let libraryBundleSuffixes =
+        bytes([
+            ".photoslibrary", ".imovielibrary", ".fcpbundle", ".logicx", ".musiclibrary", ".tvlibrary",
+        ]) + vmBundleSuffixes
 
     static func isAppBundle(_ name: ArraySlice<UInt8>) -> Bool { hasSuffix(name, appSuffix) }
     static func isLibraryBundle(_ name: ArraySlice<UInt8>) -> Bool {
