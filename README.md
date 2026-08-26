@@ -139,6 +139,10 @@ benchmark and recorded as ADRs in [`docs/decisions/`](docs/decisions).
 
 ## Roadmap
 
+What shipped when is in [`CHANGELOG.md`](CHANGELOG.md); how a release is cut is in
+[`docs/RELEASING.md`](docs/RELEASING.md).
+
+
 | Milestone | What |
 |---|---|
 | 0 | Repo + skeleton, CI, empty app launches |
