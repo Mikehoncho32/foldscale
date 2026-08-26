@@ -48,30 +48,27 @@ enum DemoTree {
     static func history(for tree: FileTree, homePath: String, now: Date) -> SizeHistory {
         let home = URL(fileURLWithPath: homePath).pathComponents.dropFirst().joined(separator: "/")
         let today = SizeHistory.Snapshot.capture(tree, date: now)
-        let steps: [(daysAgo: Int, grew: [String: Int64], absent: [String])] = [
-            (
-                8,
-                [
+        let steps = [
+            PastStep(
+                daysAgo: 8,
+                grew: [
                     "\(home)/Library/Developer/Xcode/DerivedData": 3_100 * mb,
                     "\(home)/Downloads": 1_900 * mb,
                     "\(home)/Library/Caches/Homebrew": 900 * mb,
-                ], []
-            ),
-            (
-                31,
-                [
+                ]),
+            PastStep(
+                daysAgo: 31,
+                grew: [
                     "\(home)/Library/Containers/com.docker.docker": 4_200 * mb,
                     "\(home)/Pictures/Photos Library.photoslibrary": 2_400 * mb,
                     "\(home)/Movies/Summer Trip 2026.fcpbundle": 6_000 * mb,
-                ], ["\(home)/Parallels"]
-            ),
-            (
-                75,
-                [
+                ], absent: ["\(home)/Parallels"]),
+            PastStep(
+                daysAgo: 75,
+                grew: [
                     "\(home)/Library/Application Support/Steam": 6_400 * mb,
                     "\(home)/Developer/ml-experiments": 5_500 * mb,
-                ], ["\(home)/Library/Application Support/MobileSync"]
-            ),
+                ], absent: ["\(home)/Library/Application Support/MobileSync"]),
         ]
         var snapshots: [SizeHistory.Snapshot] = []
         var shrink: [String: Int64] = [:]
@@ -95,6 +92,14 @@ enum DemoTree {
                     date: now.addingTimeInterval(-Double(step.daysAgo) * 86_400), entries: entries))
         }
         return SizeHistory(rootPath: "/", snapshots: snapshots)
+    }
+
+    /// How much some folders grew between a past snapshot and today (cumulative going
+    /// back), and which folders didn't exist yet.
+    private struct PastStep {
+        let daysAgo: Int
+        let grew: [String: Int64]
+        var absent: [String] = []
     }
 
     private static func applications(_ gen: inout Generator) {
