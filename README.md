@@ -12,7 +12,15 @@
   <em>&nbsp;· Status: v1.1 — signed and notarized releases</em>
 </p>
 
-<!-- TODO: add a screenshot of the drive view + Free up space. -->
+<p align="center">
+  <a href="https://mikehoncho32.github.io/radix/"><img src="site/img/home-light.png" width="860" alt="Radix showing a home folder: every folder with its size, sorted biggest-first"></a>
+</p>
+
+<p align="center">
+  <a href="https://mikehoncho32.github.io/radix/"><strong>mikehoncho32.github.io/radix</strong></a> ·
+  <a href="../../releases/latest">Download</a> ·
+  <code>brew install --cask mikehoncho32/radix/radix-finder</code>
+</p>
 
 ---
 
@@ -48,6 +56,18 @@ signed with a Developer ID and notarized by Apple, so there's no Gatekeeper warn
 
 > Running an older unsigned build (v1.0.0)? **Right-click Radix → Open** the first time.
 
+### Homebrew
+
+```sh
+brew install --cask mikehoncho32/radix/radix-finder
+```
+
+(The token is `radix-finder`, not `radix`: the official Homebrew index already has an unrelated
+cask called `radix`.)
+
+Updates arrive with `brew upgrade`; `brew uninstall --cask --zap radix-finder` also removes the scan cache
+and preferences. The cask lives in [Mikehoncho32/homebrew-radix](https://github.com/Mikehoncho32/homebrew-radix).
+
 ### Full Disk Access
 
 Radix reads file sizes across your disk, which macOS gates behind **Full Disk Access**. On first run
@@ -80,6 +100,17 @@ xcodebuild -project Radix.xcodeproj -scheme RadixApp -destination 'platform=macO
 The generated `Radix.xcodeproj` is intentionally **not** checked in — `project.yml` (xcodegen) is the
 source of truth so CI can build from a clean checkout.
 
+### Dev hooks
+
+Environment variables the app honours, for headless work (screenshots, smoke tests):
+
+| Variable | Effect |
+|---|---|
+| `RADIX_SCAN_PATH=/some/folder` | Scan that folder on launch instead of loading the cache |
+| `RADIX_LOG=1` | Print a `RADIX_SCAN_DONE …` line to stderr when a scan/refresh lands |
+| `RADIX_DEMO=1` | Load a hand-written, realistic demo drive (`Sources/RadixApp/Dev/DemoTree.swift`) — never refreshes, never persists. Used for the website screenshots so no real files appear |
+| `RADIX_APPEARANCE=light\|dark`, `RADIX_WINDOW=1280x800`, `RADIX_DEMO_VIEW=home\|drive\|freeup\|<smart list>`, `RADIX_DEMO_EXPAND=1,3` | Demo-mode staging: appearance, window size, destination, outline rows to expand |
+
 ## Architecture
 
 Radix is split into two pieces:
@@ -104,6 +135,7 @@ benchmark and recorded as ADRs in [`docs/decisions/`](docs/decisions).
 | 5 | Smart lists + scan-cache persistence |
 | 6 | v1.0: sidebar, footer stats, icon, DMG, release |
 | 1.1 | Drive tree sidebar, live refresh, drive overview, task-oriented smart lists, Free up space, notarized DMG |
+| 1.1.x | Homebrew tap, landing page ([mikehoncho32.github.io/radix](https://mikehoncho32.github.io/radix/)), demo mode for screenshots |
 
 ## Contributing
 

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radix — a Finder-native disk space analyzer for macOS</title>
+<meta name="description" content="Radix is a free, open-source disk space analyzer for macOS. Every folder shows its size, everything is sorted biggest-first, and Free up space tells you what's safe to trash.">
+<meta property="og:title" content="Radix — Finder, but every folder shows its size">
+<meta property="og:description" content="A free, open-source disk space analyzer for macOS. Notarized, private, and safe by construction.">
+<meta property="og:image" content="https://mikehoncho32.github.io/radix/img/home-light.png">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0a84ff">
+<link rel="icon" href="img/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="img/icon.png">
+<style>
+  :root {
+    --bg: #ffffff; --bg-2: #f5f5f7; --fg: #1d1d1f; --fg-2: #515154; --fg-3: #86868b;
+    --line: rgba(0,0,0,.08); --accent: #0071e3; --accent-fg: #fff; --green: #248a3d; --amber: #b25000;
+    --card: #ffffff; --code: #f0f0f2; --shadow: 0 30px 60px -20px rgba(0,0,0,.35), 0 0 0 1px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000; --bg-2: #161617; --fg: #f5f5f7; --fg-2: #a1a1a6; --fg-3: #6e6e73;
+      --line: rgba(255,255,255,.1); --accent: #2997ff; --accent-fg: #000; --green: #30d158; --amber: #ffb340;
+      --card: #1c1c1e; --code: #1c1c1e; --shadow: 0 30px 60px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.08);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 17px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Inter, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  .shot img.light-only { display: block; } .shot img.dark-only { display: none; }
+  @media (prefers-color-scheme: dark) { .shot img.light-only { display: none; } .shot img.dark-only { display: block; } }
+
+  nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  nav .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); font-weight: 600; font-size: 19px; }
+  nav .brand img { width: 32px; height: 32px; }
+  nav ul { display: flex; gap: 26px; list-style: none; margin: 0; padding: 0; font-size: 15px; }
+  nav ul a { color: var(--fg-2); } nav ul a:hover { color: var(--fg); text-decoration: none; }
+
+  .hero { text-align: center; padding: 64px 0 40px; }
+  .hero img.icon { width: 112px; height: 112px; filter: drop-shadow(0 12px 24px rgba(0,0,0,.18)); }
+  .hero h1 { font-size: clamp(36px, 6vw, 60px); line-height: 1.06; letter-spacing: -.02em; margin: 22px 0 16px; font-weight: 700; }
+  .hero p.lede { font-size: clamp(18px, 2.4vw, 22px); color: var(--fg-2); max-width: 640px; margin: 0 auto 30px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 24px; border-radius: 12px; font-weight: 600;
+    font-size: 17px; background: var(--accent); color: var(--accent-fg); }
+  .btn:hover { text-decoration: none; filter: brightness(1.08); }
+  .btn svg { width: 18px; height: 18px; }
+  .btn.secondary { background: var(--bg-2); color: var(--fg); }
+  .meta { margin-top: 14px; font-size: 14px; color: var(--fg-3); }
+  .meta span + span::before { content: "·"; margin: 0 8px; }
+
+  .brew { display: inline-flex; align-items: center; gap: 10px; margin-top: 22px; padding: 8px 8px 8px 16px; border-radius: 10px;
+    background: var(--code); border: 1px solid var(--line); font: 14px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--fg-2); }
+  .brew code { color: var(--fg); }
+  .brew button { border: 0; background: var(--bg); color: var(--fg-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px;
+    font: inherit; font-size: 12px; cursor: pointer; }
+  .brew button:hover { color: var(--fg); }
+
+  .shot { margin: 44px auto 0; max-width: 1080px; }
+  .shot img { display: block; width: 100%; height: auto; border-radius: 11px; box-shadow: var(--shadow); }
+  .shot figcaption { text-align: center; color: var(--fg-3); font-size: 14px; margin-top: 14px; }
+
+  section { padding: 84px 0 0; }
+  h2 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -.02em; line-height: 1.1; margin: 0 0 10px; }
+  .sub { color: var(--fg-2); font-size: 19px; max-width: 640px; margin: 0 0 36px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .card { background: var(--bg-2); border-radius: 18px; padding: 26px 26px 24px; }
+  .card .glyph { width: 40px; height: 40px; border-radius: 10px; background: var(--card); display: grid; place-items: center;
+    margin-bottom: 16px; box-shadow: 0 0 0 1px var(--line); }
+  .card .glyph svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .card h3 { margin: 0 0 6px; font-size: 19px; }
+  .card p { margin: 0; color: var(--fg-2); font-size: 15.5px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-right: 4px; }
+  .badge.safe { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+  .badge.review { background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }
+
+  .split { display: grid; grid-template-columns: 1fr 1.6fr; gap: 40px; align-items: center; }
+  @media (max-width: 840px) { .split { grid-template-columns: 1fr; } }
+  .split .shot { margin: 0; }
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+  .steps li { position: relative; padding-left: 44px; color: var(--fg-2); }
+  .steps li b { color: var(--fg); }
+  .steps li::before { counter-increment: step; content: counter(step); position: absolute; left: 0; top: 1px; width: 28px; height: 28px;
+    border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-weight: 700; font-size: 14px; display: grid; place-items: center; }
+  .note { margin-top: 22px; padding: 14px 16px; border-radius: 12px; background: var(--bg-2); color: var(--fg-2); font-size: 14.5px; }
+
+  .faq { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px 40px; }
+  .faq h3 { margin: 0 0 6px; font-size: 17px; } .faq p { margin: 0; color: var(--fg-2); font-size: 15.5px; }
+
+  footer { margin-top: 96px; padding: 28px 0 44px; border-top: 1px solid var(--line); color: var(--fg-3); font-size: 14px;
+    display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+  footer a { color: var(--fg-2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="#"><img src="img/icon.png" alt="">Radix</a>
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="https://github.com/Mikehoncho32/radix">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <header class="hero">
+    <img class="icon" src="img/icon.png" alt="Radix app icon">
+    <h1>Finder, but every folder<br>shows its size.</h1>
+    <p class="lede">Radix is a free, open-source disk space analyzer for macOS. Everything sorted biggest-first at every level — and a <strong>Free up space</strong> button that knows what's safe to trash.</p>
+    <div class="cta">
+      <a class="btn" id="download" href="https://github.com/Mikehoncho32/radix/releases/latest/download/Radix-1.1.0.dmg">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        Download for macOS
+      </a>
+      <a class="btn secondary" href="https://github.com/Mikehoncho32/radix">View on GitHub</a>
+    </div>
+    <p class="meta"><span>Version <b id="version">1.1.0</b></span><span>macOS 14 or later</span><span>Apple silicon &amp; Intel</span><span>Notarized by Apple</span><span>MIT license</span></p>
+    <div class="brew"><span>$</span><code id="brew">brew install --cask mikehoncho32/radix/radix-finder</code><button id="copy" type="button" title="Copy">Copy</button></div>
+
+    <figure class="shot">
+      <img class="light-only" src="img/home-light.png" alt="Radix showing a home folder: every folder with its size, sorted biggest-first, with a Movies folder expanded">
+      <img class="dark-only" src="img/home-dark.png" alt="Radix showing a home folder in dark mode: every folder with its size, sorted biggest-first">
+      <figcaption>Your drive, the way Finder shows it — plus a size bar on every row, relative to its parent folder.</figcaption>
+    </figure>
+  </header>
+
+  <section id="features">
+    <h2>A disk analyzer for people who don't want a nerd tool.</h2>
+    <p class="sub">Other analyzers lead with a chart and hide the file list. Radix inverts that: the list <em>is</em> the product.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="glyph"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M7 14h6"/></svg></div>
+        <h3>Looks like Finder</h3>
+        <p>No treemap to decode. Folders you already know, with a size next to each one and the biggest on top at every depth. Drill down without losing scale.</p>
+      </div>
+      <div class="card">
+        <div class="glyph"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></div>
+        <h3>Always current</h3>
+        <p>Opens instantly from your last scan and refreshes in the background. The folder you click is re-checked on the spot. No “scanning…” wall.</p>
+      </div>
+      <div class="card">
+        <div class="glyph"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z"/><path d="M5 17l.8 2 2 .8-2 .8L5 22l-.8-1.4-2-.8 2-.8z"/></svg></div>
+        <h3>Free up space</h3>
+        <p>Say how much you need. Radix pre-ticks the safest candidates to cover it — old installers, caches, build junk — you adjust, one confirmation.</p>
+      </div>
+      <div class="card">
+        <div class="glyph"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+        <h3>Task lists, not filters</h3>
+        <p><span class="badge safe">Safe to remove</span><span class="badge review">Review first</span><br>Downloads, Caches &amp; Trash, Developer junk, Apps &amp; games, Big projects, Videos &amp; recordings — each with a GB total and a safety badge.</p>
+      </div>
+      <div class="card">
+        <div class="glyph"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Safe by construction</h3>
+        <p>Everything goes to the Trash — never a permanent delete. System folders refuse to be trashed. Radix never opens your files and never downloads cloud placeholders.</p>
+      </div>
+      <div class="card">
+        <div class="glyph"><svg viewBox="0 0 24 24"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"/><path d="M8 12l3 3 5-6"/></svg></div>
+        <h3>Private and open</h3>
+        <p>No network access, no analytics, no account. Signed and notarized by Apple, MIT-licensed, and every line is on GitHub.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="freeup">
+    <div class="split">
+      <div>
+        <h2>“I need 10 GB.”</h2>
+        <p class="sub" style="margin-bottom:18px">Pick a target. Radix ranks what it found by how safe it is to remove and ticks the safest until the target is covered.</p>
+        <ol class="steps">
+          <li><b>Choose an amount</b> — 5, 10, 20, 50 or 100 GB.</li>
+          <li><b>Review the pre-ticked list</b> — nothing marked “review first” is ever ticked for you.</li>
+          <li><b>Move to Trash</b> — one confirmation, and it's all still in the Trash if you change your mind.</li>
+        </ol>
+      </div>
+      <figure class="shot">
+        <img class="light-only" src="img/freeup-light.png" alt="The Free up space view: a target of 10 GB with the safest candidates pre-ticked">
+        <img class="dark-only" src="img/freeup-dark.png" alt="The Free up space view in dark mode">
+      </figure>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <p class="sub">Three steps. No account, no launcher, no background agent.</p>
+    <div class="split">
+      <div>
+        <ol class="steps">
+          <li><b>Download</b> <a id="download2" href="https://github.com/Mikehoncho32/radix/releases/latest/download/Radix-1.1.0.dmg">Radix-<span id="version2">1.1.0</span>.dmg</a> and open it.</li>
+          <li><b>Drag Radix</b> to your Applications folder.</li>
+          <li><b>Open it.</b> It's notarized, so it just launches. Grant <b>Full Disk Access</b> when asked to see everything.</li>
+        </ol>
+        <div class="note">Prefer Homebrew? <code>brew install --cask mikehoncho32/radix/radix-finder</code> — updates arrive with <code>brew upgrade</code>.</div>
+      </div>
+      <figure class="shot">
+        <img src="img/developer-light.png" alt="The Developer junk list: DerivedData, caches and build folders with sizes and safety badges">
+        <figcaption>Developer junk — DerivedData, simulators, node_modules and friends, with what's safe to rebuild.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="faq">
+    <h2>Questions</h2>
+    <div class="faq" style="margin-top:28px">
+      <div><h3>Why does it ask for Full Disk Access?</h3><p>macOS hides parts of your own home folder (Mail, Messages, Safari data…) from apps unless you allow it. Without it, Radix still works — those folders just show as “not readable”.</p></div>
+      <div><h3>Can it delete something I need?</h3><p>It can only move items to the Trash, and it refuses to touch system folders. Nothing is gone until you empty the Trash yourself.</p></div>
+      <div><h3>Does it send anything anywhere?</h3><p>No. Radix has no networking code at all. Scans are stored in a local cache in your Application Support folder and nowhere else.</p></div>
+      <div><h3>Will it download my iCloud files?</h3><p>No. Online-only placeholders show their real local footprint with a cloud badge; Radix reads metadata only and never opens file contents.</p></div>
+      <div><h3>Is it really free?</h3><p>Yes — MIT-licensed, source on GitHub. If it helped you, a star on the repo helps others find it.</p></div>
+      <div><h3>What does it need?</h3><p>macOS 14 (Sonoma) or later on Apple silicon or Intel. A full scan of a 1 TB drive takes well under a minute.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Radix · MIT license · <a href="https://github.com/Mikehoncho32/radix/releases">Releases</a> · <a href="https://github.com/Mikehoncho32/radix/issues">Report an issue</a> · <a href="https://github.com/Mikehoncho32/homebrew-radix">Homebrew tap</a></span>
+    <span>Built for macOS with Swift.</span>
+  </footer>
+</div>
+<script>
+  // Point the download at the newest release; fall back to the pinned version if offline.
+  fetch('https://api.github.com/repos/Mikehoncho32/radix/releases/latest')
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(rel => {
+      const asset = (rel.assets || []).find(a => a.name.endsWith('.dmg'));
+      if (!asset) return;
+      const v = String(rel.tag_name || '').replace(/^v/, '');
+      for (const id of ['download', 'download2']) document.getElementById(id).href = asset.browser_download_url;
+      for (const id of ['version', 'version2']) if (v) document.getElementById(id).textContent = v;
+    }).catch(() => {});
+  document.getElementById('copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('brew').textContent).then(() => {
+      const b = document.getElementById('copy'); b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1500);
+    });
+  });
+</script>
+</body>
+</html>
