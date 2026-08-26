@@ -10,5 +10,5 @@ import Foundation
 /// engine stays independently testable and reusable (e.g. for a future menu-bar mode).
 public enum RadixCore {
     /// The semantic version of the RadixCore engine.
-    public static let version = "1.0.0"
+    public static let version = "1.1.0"
 }
