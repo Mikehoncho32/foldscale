@@ -35,7 +35,7 @@ public enum SmartListEngine {
         case .videos: (entries, groups) = query.videos()
         }
         let ranked = entries.sorted { query.weight($0) > query.weight($1) }
-        let total = ranked.reduce(Int64(0)) { $0 + query.weight($1) }
+        let total = ranked.filter { $0.safety != .informational }.reduce(Int64(0)) { $0 + query.weight($1) }
         let usedGroups = groups.filter { group in ranked.contains { $0.group == group } }
         return SmartListResult(kind: kind, entries: ranked, groups: usedGroups, totalBytes: total)
     }

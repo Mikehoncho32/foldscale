@@ -35,8 +35,10 @@ public enum FreeUpPlanner {
     /// Quick-pick targets, in bytes (5 · 10 · 25 · 50 · 100 GB).
     public static let quickTargets: [Int64] = [5, 10, 25, 50, 100].map { $0 * 1_000_000_000 }
 
-    /// Candidates from every list, informational rows excluded, one per node (the
-    /// safest classification wins), ranked safest-and-biggest first.
+    /// Candidates from every list, informational rows excluded, one per node. When
+    /// two lists disagree about an item, the **more cautious** classification wins
+    /// (a folder that one list calls a cache and another calls a project is treated
+    /// as a project); priority only breaks ties within the same safety.
     public static func suggestions(
         from lists: [SmartListKind: SmartListResult], in tree: FileTree
     ) -> [SpaceSuggestion] {
@@ -48,7 +50,7 @@ public enum FreeUpPlanner {
                     note: entry.note,
                     bytes: tree.totalAllocatedSize(of: entry.node),
                     priority: priority(kind, entry.group, entry.safety))
-                if let existing = best[entry.node], existing.priority <= candidate.priority { continue }
+                if let existing = best[entry.node], !prefers(candidate, over: existing) { continue }
                 best[entry.node] = candidate
             }
         }
@@ -57,9 +59,26 @@ public enum FreeUpPlanner {
         }
     }
 
-    /// Picks suggestions in rank order until `target` bytes are covered, skipping
-    /// anything nested under an earlier pick. Only safe items are picked
-    /// automatically unless `includeReviewFirst` is set.
+    private static func prefers(_ candidate: SpaceSuggestion, over existing: SpaceSuggestion) -> Bool {
+        let candidateCaution = caution(candidate.safety)
+        let existingCaution = caution(existing.safety)
+        if candidateCaution != existingCaution { return candidateCaution > existingCaution }
+        return candidate.priority < existing.priority
+    }
+
+    private static func caution(_ safety: SmartListSafety) -> Int {
+        switch safety {
+        case .safeToTrash: return 0
+        case .reviewFirst: return 1
+        case .informational: return 2
+        }
+    }
+
+    /// Picks suggestions in rank order until `target` bytes are covered. A pick
+    /// nested under an earlier pick is skipped, and picking a folder evicts any
+    /// earlier picks inside it, so the running total always equals
+    /// ``reclaimTotal(of:in:)`` and no redundant rows are ticked. Only safe items
+    /// are picked automatically unless `includeReviewFirst` is set.
     public static func greedySelection(
         target: Int64, from suggestions: [SpaceSuggestion], in tree: FileTree,
         includeReviewFirst: Bool = false
@@ -69,6 +88,10 @@ public enum FreeUpPlanner {
         for suggestion in suggestions where total < target {
             guard includeReviewFirst || suggestion.safety == .safeToTrash else { continue }
             guard !hasAncestor(of: suggestion.node, in: picked, tree: tree) else { continue }
+            for nested in picked where hasAncestor(of: nested, in: [suggestion.node], tree: tree) {
+                picked.remove(nested)
+                total -= tree.totalAllocatedSize(of: nested)
+            }
             picked.insert(suggestion.node)
             total += suggestion.bytes
         }
@@ -81,6 +104,12 @@ public enum FreeUpPlanner {
         selected.reduce(Int64(0)) { sum, node in
             hasAncestor(of: node, in: selected, tree: tree) ? sum : sum + tree.totalAllocatedSize(of: node)
         }
+    }
+
+    /// The outermost members of `selected` — what actually needs trashing.
+    public static func outermost(of selected: Set<FileTree.NodeID>, in tree: FileTree) -> Set<FileTree.NodeID>
+    {
+        selected.filter { !hasAncestor(of: $0, in: selected, tree: tree) }
     }
 
     /// Whether any ancestor of `node` is in `set`.

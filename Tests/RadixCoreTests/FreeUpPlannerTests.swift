@@ -70,11 +70,11 @@ final class FreeUpPlannerTests: XCTestCase {
         let names = suggestions.map { tree.name(of: $0.node) }
 
         XCTAssertEqual(
-            names, ["c", "a1", "b", "a"], "safe (caches, installers) before review-first; big before small")
+            names, ["a1", "b", "c", "a"], "safe (installers) before review-first; big before small")
         XCTAssertFalse(names.contains("d"), "informational rows are never suggested")
         let c = suggestions.first { tree.name(of: $0.node) == "c" }!
-        XCTAssertEqual(c.safety, .safeToTrash, "the safest classification wins when a node is in two lists")
-        XCTAssertEqual(c.source, .cachesAndTrash)
+        XCTAssertEqual(c.safety, .reviewFirst, "when lists disagree, the more cautious classification wins")
+        XCTAssertEqual(c.source, .bigProjects)
     }
 
     // MARK: - Greedy pick
@@ -83,18 +83,20 @@ final class FreeUpPlannerTests: XCTestCase {
         let tree = makeTree()
         let suggestions = FreeUpPlanner.suggestions(from: lists(tree), in: tree)
 
-        let small = FreeUpPlanner.greedySelection(target: 900 * megabyte, from: suggestions, in: tree)
-        XCTAssertEqual(small, [node(tree, ["c"])], "1 GB cache alone covers 900 MB")
+        let small = FreeUpPlanner.greedySelection(target: 100 * megabyte, from: suggestions, in: tree)
+        XCTAssertEqual(small, [node(tree, ["a", "a1"])], "the one safe item covers 100 MB")
 
         let large = FreeUpPlanner.greedySelection(target: 5 * gigabyte, from: suggestions, in: tree)
-        XCTAssertEqual(
-            large, [node(tree, ["c"]), node(tree, ["a", "a1"])], "runs out of safe items and stops")
+        XCTAssertEqual(large, [node(tree, ["a", "a1"])], "runs out of safe items and stops short")
 
         let withReview = FreeUpPlanner.greedySelection(
             target: 5 * gigabyte, from: suggestions, in: tree, includeReviewFirst: true)
         XCTAssertEqual(
-            withReview, [node(tree, ["c"]), node(tree, ["a", "a1"]), node(tree, ["b"]), node(tree, ["a"])],
-            "review-first items join once allowed; nested a is still picked after a1 (a is the parent, picked later)"
+            withReview, [node(tree, ["b"]), node(tree, ["c"]), node(tree, ["a"])],
+            "review-first items join once allowed; picking folder a evicts its child a1 so nothing is counted twice"
+        )
+        XCTAssertEqual(
+            FreeUpPlanner.reclaimTotal(of: withReview, in: tree), 2 * gigabyte + 1 * gigabyte + 500 * megabyte
         )
     }
 
@@ -120,6 +122,7 @@ final class FreeUpPlannerTests: XCTestCase {
         XCTAssertEqual(FreeUpPlanner.reclaimTotal(of: [a, a1, b], in: tree), 500 * megabyte + 2 * gigabyte)
         XCTAssertEqual(FreeUpPlanner.reclaimTotal(of: [a1, b], in: tree), 300 * megabyte + 2 * gigabyte)
         XCTAssertEqual(FreeUpPlanner.reclaimTotal(of: [], in: tree), 0)
+        XCTAssertEqual(FreeUpPlanner.outermost(of: [a, a1, b], in: tree), [a, b])
     }
 
     // MARK: - Developer junk list
@@ -140,6 +143,13 @@ final class FreeUpPlannerTests: XCTestCase {
         builder.enterDirectory(name: "Caches", meta: meta(directory: true, bytes: 0))
         builder.enterDirectory(name: "Homebrew", meta: meta(directory: true, bytes: 0))
         builder.addLeaf(name: "bottle", meta: meta(directory: false, bytes: 10 * megabyte))  // below floor
+        builder.leaveDirectory()
+        builder.leaveDirectory()
+        builder.leaveDirectory()
+        builder.enterDirectory(name: "Movies", meta: meta(directory: true, bytes: 0))
+        builder.enterDirectory(name: "Doc.fcpbundle", meta: meta(directory: true, bytes: 0))
+        builder.enterDirectory(name: "build", meta: meta(directory: true, bytes: 0))
+        builder.addLeaf(name: "not-junk", meta: meta(directory: false, bytes: 3 * gigabyte))
         builder.leaveDirectory()
         builder.leaveDirectory()
         builder.leaveDirectory()
@@ -164,7 +174,9 @@ final class FreeUpPlannerTests: XCTestCase {
         let byGroup = { (group: String) in result.entries(in: group).map { tree.name(of: $0.node) } }
         XCTAssertEqual(byGroup("Xcode"), ["DerivedData"])
         XCTAssertEqual(byGroup("Tool caches"), [], "Homebrew cache below the 50 MB floor")
-        XCTAssertEqual(byGroup("Build output"), ["node_modules"])
+        XCTAssertEqual(
+            byGroup("Build output"), ["node_modules"],
+            "a folder named 'build' inside a video project is not junk")
         XCTAssertEqual(result.entries(in: "Build output").first?.note, "in app · rebuilds on the next build")
         XCTAssertEqual(result.totalBytes, 9 * gigabyte + 700 * megabyte)
         XCTAssertEqual(result.groups, ["Build output", "Xcode"])

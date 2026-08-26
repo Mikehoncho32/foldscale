@@ -3,14 +3,18 @@ import Foundation
 // MARK: - Downloads
 
 extension SmartListQuery {
-    static let installerExtensions = SmartListBytes.bytes([
-        "dmg", "pkg", "mpkg", "zip", "iso", "xip", "ipsw", "rar", "7z", "tar", "gz", "tgz",
-    ])
+    /// Re-downloadable installers: safe once they've sat for two weeks.
+    static let installerExtensions = SmartListBytes.bytes(["dmg", "pkg", "mpkg", "xip", "ipsw"])
+    /// Bare archives: safe only when the app they carry is already installed —
+    /// otherwise they might be someone's only copy, so they're review-first.
+    static let archiveExtensions = SmartListBytes.bytes(["zip", "iso", "rar", "7z", "tar", "gz", "tgz"])
+    static let installerSafeAge: TimeInterval = 14 * 86_400
     static let forgottenMinimumBytes: Int64 = 200_000_000
     static let forgottenAge: TimeInterval = 30 * 86_400
 
     /// Installers and archives, plus big files untouched for a month, in Downloads
-    /// and on the Desktop (depth ≤ 3).
+    /// and on the Desktop (depth ≤ 3). Only installers that are old enough or whose
+    /// app is already installed are marked safe; everything else is review-first.
     mutating func downloads() -> ([SmartListEntry], [String]) {
         let installers = "Installers & archives"
         let forgotten = "Big and forgotten"
@@ -20,19 +24,24 @@ extension SmartListQuery {
             guard let root = node(at: folder) else { continue }
             walk(root, maxDepth: 3) { node in
                 guard !tree.isDirectory(node) else { return }
-                if SmartListBytes.hasExtension(tree.nameUTF8(of: node), in: Self.installerExtensions) {
+                let name = tree.nameUTF8(of: node)
+                let isInstaller = SmartListBytes.hasExtension(name, in: Self.installerExtensions)
+                let isArchive = !isInstaller && SmartListBytes.hasExtension(name, in: Self.archiveExtensions)
+                if isInstaller || isArchive {
+                    let alreadyInstalled = installed.contains(Self.productName(from: tree.name(of: node)))
+                    let matured = isInstaller && ageSeconds(of: node) >= Self.installerSafeAge
                     var note = age(of: node)
-                    if installed.contains(Self.productName(from: tree.name(of: node))) {
-                        note += " · already installed"
-                    }
+                    if alreadyInstalled { note += " · already installed" }
                     entries.append(
-                        SmartListEntry(node: node, group: installers, note: note, safety: .safeToTrash))
+                        SmartListEntry(
+                            node: node, group: installers, note: note,
+                            safety: alreadyInstalled || matured ? .safeToTrash : .reviewFirst))
                 } else if tree.totalAllocatedSize(of: node) >= Self.forgottenMinimumBytes,
                     ageSeconds(of: node) >= Self.forgottenAge
                 {
                     entries.append(
                         SmartListEntry(
-                            node: node, group: forgotten, note: age(of: node), safety: .safeToTrash))
+                            node: node, group: forgotten, note: age(of: node), safety: .reviewFirst))
                 }
             }
         }

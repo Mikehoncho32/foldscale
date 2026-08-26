@@ -11,6 +11,8 @@ struct FreeUpSpaceView: View {
     @State private var checked: Set<FileTree.NodeID> = []
     @State private var includeReviewFirst = false
     @State private var userAdjusted = false
+    /// Items the user deliberately un-ticked; auto-pick leaves them alone.
+    @State private var excluded: Set<FileTree.NodeID> = []
 
     var body: some View {
         if let tree = store.tree, store.smartListsAreCurrent {
@@ -27,18 +29,17 @@ struct FreeUpSpaceView: View {
                 Divider()
                 actionBar(reclaim: reclaim, tree: tree)
             }
-            .onAppear { autoPick(suggestions, tree) }
+            .onAppear { if !userAdjusted { autoPick(suggestions, tree) } }
             .onChange(of: store.generation) { _, _ in
                 checked = checked.filter { tree.isLive($0) }
+                excluded = excluded.filter { tree.isLive($0) }
                 if !userAdjusted { autoPick(suggestions, tree) }
             }
-            .onChange(of: target) { _, _ in
-                userAdjusted = false
-                autoPick(suggestions, tree)
-            }
-            .onChange(of: includeReviewFirst) { _, _ in
-                userAdjusted = false
-                autoPick(suggestions, tree)
+            .onChange(of: target) { _, _ in autoPick(suggestions, tree) }
+            .onChange(of: includeReviewFirst) { _, _ in autoPick(suggestions, tree) }
+            .onChange(of: store.isConfirmingTrash) { _, showing in
+                // The plan only becomes the app-wide selection while the sheet is up.
+                if !showing { store.selection = [] }
             }
         } else {
             VStack(spacing: 10) {
@@ -176,7 +177,13 @@ struct FreeUpSpaceView: View {
             get: { checked.contains(node) },
             set: { isOn in
                 userAdjusted = true
-                if isOn { checked.insert(node) } else { checked.remove(node) }
+                if isOn {
+                    checked.insert(node)
+                    excluded.remove(node)
+                } else {
+                    checked.remove(node)
+                    excluded.insert(node)
+                }
             })
     }
 
@@ -203,9 +210,16 @@ struct FreeUpSpaceView: View {
             Spacer()
             Button("Untick all") {
                 userAdjusted = true
+                excluded.formUnion(checked)
                 checked = []
             }
             .disabled(checked.isEmpty)
+            Button("Reset picks") {
+                userAdjusted = false
+                excluded = []
+                autoPick(suggestions(tree), tree)
+            }
+            .disabled(!userAdjusted)
             Button {
                 store.selection = checked.filter { tree.isLive($0) }
                 store.isConfirmingTrash = true
@@ -216,7 +230,6 @@ struct FreeUpSpaceView: View {
                     systemImage: "trash")
             }
             .tint(.red)
-            .keyboardShortcut(.defaultAction)
             .disabled(checked.isEmpty)
         }
         .padding(.horizontal, 14)
@@ -243,7 +256,12 @@ struct FreeUpSpaceView: View {
     // MARK: - Auto pick
 
     private func autoPick(_ suggestions: [SpaceSuggestion], _ tree: FileTree) {
+        let candidates = suggestions.filter { !excluded.contains($0.node) }
         checked = FreeUpPlanner.greedySelection(
-            target: target, from: suggestions, in: tree, includeReviewFirst: includeReviewFirst)
+            target: target, from: candidates, in: tree, includeReviewFirst: includeReviewFirst)
+    }
+
+    private func suggestions(_ tree: FileTree) -> [SpaceSuggestion] {
+        FreeUpPlanner.suggestions(from: store.smartLists, in: tree)
     }
 }

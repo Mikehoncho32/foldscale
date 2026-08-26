@@ -15,13 +15,14 @@ extension SmartListQuery {
     static let videoBundleSuffixes = SmartListBytes.bytes([".fcpbundle", ".imovielibrary"])
     static let audioBundleSuffixes = SmartListBytes.bytes([".logicx"])
     static let libraryName = SmartListBytes.bytes("Library")
+    /// Standard home folders: never promoted to a project themselves (an iMovie
+    /// library in ~/Movies must not swallow ~/Movies), always descended.
+    static let homeReservedNames = SmartListBytes.bytes([
+        "Documents", "Desktop", "Downloads", "Movies", "Music", "Pictures", "Public", "Applications",
+    ])
     static let projectMinimumBytes: Int64 = 250_000_000
     static let looseProjectMinimumBytes: Int64 = 1_000_000_000
     static let looseProjectParents = ["Documents", "Desktop", "Projects", "Developer", "Movies", "Music"]
-    static let junkFolderNames = SmartListBytes.bytes([
-        "node_modules", "Pods", ".build", "build", "dist", ".next", "target", "DerivedData",
-        "Render Files", "Transcoded Media", "Media Cache", "Media Cache Files", "Peak Files", "Proxy",
-    ])
 
     /// Project roots under home, with last-touched and rebuildable-junk figures:
     /// project bundles (Final Cut, iMovie, Logic) are listed as themselves; folders
@@ -46,13 +47,22 @@ extension SmartListQuery {
             tree.forEachChild(of: parent) { child in
                 guard tree.isDirectory(child) else { return }
                 let name = tree.nameUTF8(of: child)
-                // At the top of home, skip ~/Library and dot-folders (46 = ".").
-                if depth == 0, SmartListBytes.equals(name, Self.libraryName) || name.first == 46 { return }
+                if depth == 0 {
+                    // At the top of home: skip ~/Library and dot-folders (46 = "."); the
+                    // standard folders are containers, never projects themselves.
+                    if SmartListBytes.equals(name, Self.libraryName) || name.first == 46 { return }
+                    if SmartListBytes.equalsAny(name, Self.homeReservedNames) {
+                        visit(child, depth: depth + 1)
+                        return
+                    }
+                }
                 if let group = Self.bundleProjectKind(name) {
                     roots.append((child, group))
-                } else if SmartListBytes.isAppBundle(name) || SmartListBytes.isLibraryBundle(name) {
-                    return
-                } else if depth > 0, let group = markerProjectKind(of: child) {
+                } else if SmartListBytes.isAppBundle(name) || SmartListBytes.isLibraryBundle(name)
+                    || SmartListBytes.equalsAny(name, Self.codeJunkFolderNames)
+                {
+                    return  // bundles and dependency/build folders never hold "projects" of yours
+                } else if let group = markerProjectKind(of: child) {
                     roots.append((child, group))
                 } else if looseParents.contains(parent), !containsProjectBundle(child),
                     tree.totalAllocatedSize(of: child) >= Self.looseProjectMinimumBytes
@@ -69,7 +79,7 @@ extension SmartListQuery {
 
     private func projectEntry(_ node: FileTree.NodeID, group: String) -> SmartListEntry? {
         guard tree.totalAllocatedSize(of: node) >= Self.projectMinimumBytes else { return nil }
-        let (lastTouched, rebuildable) = projectStats(node)
+        let (lastTouched, rebuildable) = projectStats(node, junkNames: Self.junkFolderNames(for: group))
         var note = "last touched \(age(epoch: lastTouched))"
         if rebuildable > 0 { note += " · \(Self.format(rebuildable)) rebuildable" }
         return SmartListEntry(node: node, group: group, note: note, safety: .reviewFirst)
@@ -114,12 +124,14 @@ extension SmartListQuery {
     /// Latest **file** modification time excluding junk folders (folder mtimes
     /// change whenever a build adds or removes an entry, so they don't count), and
     /// the bytes of junk inside.
-    private func projectStats(_ node: FileTree.NodeID) -> (lastTouched: Int64, rebuildable: Int64) {
+    private func projectStats(
+        _ node: FileTree.NodeID, junkNames: [[UInt8]]
+    ) -> (lastTouched: Int64, rebuildable: Int64) {
         var latest: Int64 = 0
         var junk: Int64 = 0
         tree.forEachDescendant(of: node) { child in
             if tree.isDirectory(child) {
-                if SmartListBytes.equalsAny(tree.nameUTF8(of: child), Self.junkFolderNames) {
+                if SmartListBytes.equalsAny(tree.nameUTF8(of: child), junkNames) {
                     junk += tree.totalAllocatedSize(of: child)
                     return false
                 }

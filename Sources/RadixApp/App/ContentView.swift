@@ -102,6 +102,15 @@ struct ContentView: View {
         ) {
             FDAOnboardingView(store: store)
         }
+        .alert(
+            "Some items couldn't be moved to the Trash",
+            isPresented: Binding(
+                get: { store.trashNotice != nil }, set: { if !$0 { store.trashNotice = nil } })
+        ) {
+            Button("OK") {}
+        } message: {
+            Text(store.trashNotice ?? "")
+        }
     }
 
     @ViewBuilder private var detailContent: some View {

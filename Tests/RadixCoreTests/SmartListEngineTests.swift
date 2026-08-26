@@ -128,6 +128,15 @@ final class SmartListEngineTests: XCTestCase {
             note("Photoshop 25.zip"), "9 d ago · already installed", "nested-once app counts as installed")
         XCTAssertEqual(note("movie.iso"), "10 d ago")
         XCTAssertEqual(result.groups, ["Installers & archives", "Big and forgotten"])
+
+        let safety = { (name: String) in result.entries.first { tree.name(of: $0.node) == name }?.safety }
+        XCTAssertEqual(safety("Slack-4.29.149-macOS.dmg"), .safeToTrash, "installed and old")
+        XCTAssertEqual(
+            safety("Photoshop 25.zip"), .safeToTrash, "an archive is safe only because its app is installed")
+        XCTAssertEqual(
+            safety("movie.iso"), .reviewFirst, "a bare archive with no installed app may be the only copy")
+        XCTAssertEqual(safety("Installer.pkg"), .reviewFirst, "an installer from 5 days ago is still fresh")
+        XCTAssertEqual(safety("dataset.bin"), .reviewFirst, "big forgotten files are real data")
     }
 
     func testProductNameStripsVersionsInMultiWordNames() {

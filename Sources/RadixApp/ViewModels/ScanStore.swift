@@ -151,11 +151,15 @@ final class ScanStore {
         return max(0, volume.usedCapacity - tree.totalAllocatedSize(of: tree.rootID))
     }
 
-    /// Total allocated bytes across the current selection (footer figure).
+    /// Total allocated bytes across the current selection, counting an item nested
+    /// under another selected item only once (footer and confirmation figure).
     var selectedTotalBytes: Int64 {
         guard let tree else { return 0 }
-        return selection.reduce(0) { $0 + tree.totalAllocatedSize(of: $1) }
+        return FreeUpPlanner.reclaimTotal(of: selection, in: tree)
     }
+
+    /// A message about items the last trash couldn't move (protected or failed).
+    var trashNotice: String?
 
     // MARK: - Scanning a root
 
@@ -433,7 +437,10 @@ final class ScanStore {
     @discardableResult
     func trash(_ nodes: Set<FileTree.NodeID>) async -> TrashOutcome {
         guard let tree, rootURL != nil else { return TrashOutcome() }
-        let requests: [(path: [String], item: TrashItem)] = nodes.compactMap { node in
+        // Trash only the outermost items: a folder takes its contents with it, and
+        // trashing a child after its parent would just report a spurious failure.
+        let outermost = FreeUpPlanner.outermost(of: nodes, in: tree)
+        let requests: [(path: [String], item: TrashItem)] = outermost.compactMap { node in
             guard tree.isLive(node), let url = url(for: node) else { return nil }
             return (
                 tree.pathComponentsFromRoot(of: node),
@@ -454,11 +461,24 @@ final class ScanStore {
         }
         publishMutated(current)
         if let rootURL { volume = VolumeStats.forVolume(containing: rootURL) }
+        trashNotice = Self.notice(for: outcome)
         return outcome
     }
 
     /// Total allocated bytes that trashing the current selection would reclaim.
     var selectionReclaimBytes: Int64 { selectedTotalBytes }
+
+    private static func notice(for outcome: TrashOutcome) -> String? {
+        var lines: [String] = []
+        if !outcome.refused.isEmpty {
+            let names = outcome.refused.prefix(5).map(\.lastPathComponent).joined(separator: ", ")
+            lines.append("Protected and left alone: \(names)\(outcome.refused.count > 5 ? "…" : "")")
+        }
+        for failure in outcome.failed.prefix(5) {
+            lines.append("\(failure.url.lastPathComponent): \(failure.message)")
+        }
+        return lines.isEmpty ? nil : lines.joined(separator: "\n")
+    }
 
     /// Publishes an in-place mutation (trash/exclude) of the current tree.
     private func publishMutated(_ current: FileTree) {
