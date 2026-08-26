@@ -211,6 +211,83 @@ final class SmartListNewKindsTests: XCTestCase {
         XCTAssertEqual(query.bundleInfoCache.count, 1)
     }
 
+    // MARK: - What grew
+
+    func testWhatGrewBucketsByWindowAndSuppressesExplainedAncestors() {
+        let tree = SmartListFixture.build([
+            SmartListFixture.home([
+                .dir(
+                    "Library",
+                    [
+                        .dir(
+                            "Caches",
+                            [
+                                .dir("Homebrew", [.file("bottle", bytes: 3 * gigabyte)]),
+                                .dir("pip", [.file("wheel", bytes: 200 * megabyte)]),
+                            ])
+                    ]),
+                .dir("Movies", [.file("trip.mov", bytes: 10 * gigabyte)]),
+                .dir("Downloads", [.file("big.zip", bytes: 1_500 * megabyte)]),
+            ])
+        ])
+        let now = SmartListFixture.now
+        let weekAgo = SizeHistory.Snapshot(
+            date: now.addingTimeInterval(-8 * 86_400),
+            entries: [
+                "Users": 12_700 * megabyte, "Users/t": 12_700 * megabyte, "Users/t/Library": 1_200 * megabyte,
+                "Users/t/Library/Caches": 1_200 * megabyte, "Users/t/Library/Caches/Homebrew": 1 * gigabyte,
+                "Users/t/Library/Caches/pip": 200 * megabyte, "Users/t/Movies": 10 * gigabyte,
+                "Users/t/Downloads": 1_500 * megabyte,
+            ])
+        let monthAgo = SizeHistory.Snapshot(
+            date: now.addingTimeInterval(-40 * 86_400),
+            entries: [
+                "Users": 5_200 * megabyte, "Users/t": 5_200 * megabyte, "Users/t/Library": 1_200 * megabyte,
+                "Users/t/Library/Caches": 1_200 * megabyte, "Users/t/Library/Caches/Homebrew": 1 * gigabyte,
+                "Users/t/Library/Caches/pip": 200 * megabyte, "Users/t/Movies": 4 * gigabyte,
+            ])
+        let history = SizeHistory(rootPath: "/", snapshots: [monthAgo, weekAgo])
+
+        let result = SmartListFixture.compute(.whatGrew, tree, history: history)
+
+        XCTAssertEqual(
+            SmartListFixture.names(result, in: tree, group: "Last week"), ["Homebrew"],
+            "Caches, Library and the home folder grew by the same 2 GB — explained by Homebrew, so hidden")
+        XCTAssertEqual(
+            SmartListFixture.names(result, in: tree, group: "Last month"), ["Movies", "Downloads"],
+            "ranked by growth: +6 GB, then the new 1.5 GB folder")
+        XCTAssertEqual(result.groups, ["Last week", "Last month"])
+        XCTAssertEqual(SmartListFixture.names(result, in: tree), ["Movies", "Homebrew", "Downloads"])
+        XCTAssertTrue(result.entries(in: "Last week")[0].note?.hasPrefix("+2 GB since ") == true)
+        XCTAssertTrue(result.entries(in: "Last month")[1].note?.hasPrefix("new since ") == true)
+        XCTAssertEqual(result.totalBytes, 0, "informational — nothing to reclaim")
+        XCTAssertEqual(result.footprintBytes, 9_500 * megabyte, "sidebar shows total growth")
+        XCTAssertTrue(result.entries.allSatisfy { $0.safety == .informational })
+    }
+
+    func testWhatGrewIsEmptyWithoutHistoryOrForAnotherRoot() {
+        let tree = SmartListFixture.build([
+            SmartListFixture.home([.dir("Movies", [.file("trip.mov", bytes: 10 * gigabyte)])])
+        ])
+        XCTAssertTrue(SmartListFixture.compute(.whatGrew, tree).isEmpty)
+
+        let elsewhere = SizeHistory(
+            rootPath: "/Volumes/Other",
+            snapshots: [
+                SizeHistory.Snapshot(
+                    date: SmartListFixture.now.addingTimeInterval(-10 * 86_400),
+                    entries: ["Users/t/Movies": 0])
+            ])
+        XCTAssertTrue(SmartListFixture.compute(.whatGrew, tree, history: elsewhere).isEmpty)
+
+        let onlyToday = SizeHistory(
+            rootPath: "/",
+            snapshots: [SizeHistory.Snapshot(date: SmartListFixture.now, entries: ["Users/t/Movies": 0])])
+        XCTAssertTrue(
+            SmartListFixture.compute(.whatGrew, tree, history: onlyToday).isEmpty,
+            "today's own snapshot is never a baseline")
+    }
+
     func testBundleInfoReadsAreMemoizedAndCapped() {
         let apps = (0..<(SmartListQuery.bundleInfoReadLimit + 5)).map { index -> Spec in
             .dir("App\(index).app", [.file("bin", bytes: 1 * megabyte)])
