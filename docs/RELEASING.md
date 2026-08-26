@@ -31,6 +31,9 @@ CODE_SIGN_IDENTITY="Developer ID Application: MARK RIVERA GOERSCH (55XVDTTXCV)" 
 ## When something fails
 - Notarization: nothing has been pushed yet. `xcrun notarytool log <id> --keychain-profile radix-notary`,
   fix, rerun the same command — finished steps notice they're done; `--force` replaces the appcast item.
+- "does not include a secure timestamp" from notarytool, or `no trusted timestamp on … after 5
+  attempts` in the log: Apple's timestamp server was flaky. Every signature is retried five times
+  automatically; if it still fails, wait a few minutes and rerun the same command.
 - Between merge and publish: Pages refuses to deploy a feed whose enclosure isn't live, so nothing
   breaks; rerun with `--from publish`.
 - Abandon a merged release: `gh release delete v<v> --yes` (still a draft), revert the release commit,
