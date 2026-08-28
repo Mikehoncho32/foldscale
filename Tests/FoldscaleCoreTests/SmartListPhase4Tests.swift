@@ -205,6 +205,7 @@ final class SmartListPhase4Tests: XCTestCase {
                                 folder("UBF8T346G9.com.microsoft.oneauth", 60 * megabyte),
                                 folder("2BUA8C4S2C.com.agilebits", 300 * megabyte),
                                 folder("group.com.apple.notes", 90 * megabyte),
+                                folder("243LU875E5.groups.com.apple.podcasts", 1_100 * megabyte),
                                 folder("group.com.tinyspeck.slackmacgap", 70 * megabyte),
                                 folder("6N38VWS5BX.group.ru.keepcoder.telegram", 80 * megabyte),
                             ]),
@@ -250,6 +251,9 @@ final class SmartListPhase4Tests: XCTestCase {
             FreeUpPlanner.priority(.appLeftovers, "Support data", .reviewFirst),
             FreeUpPlanner.priority(.bigProjects, "Code", .reviewFirst),
             "leftovers are picked before projects when 'Review first' is on")
+        XCTAssertFalse(
+            result.entries.contains { tree.name(of: $0.node) == "243LU875E5.groups.com.apple.podcasts" },
+            "Apple's app-group containers (plural \"groups.\" prefix) are never leftovers")
     }
 
     func testLeftoverAndCloudNameHelpers() {

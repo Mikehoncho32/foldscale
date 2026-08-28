@@ -6,6 +6,10 @@ releasing. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- App leftovers no longer lists Apple's own app-group containers (for example the Podcasts
+  downloads folder, `…groups.com.apple.podcasts`) as leftovers.
+
 ## [1.4.0] - 2026-08-26
 
 ### Added

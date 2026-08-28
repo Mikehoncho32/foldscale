@@ -146,7 +146,9 @@ extension SmartListQuery {
     /// App-group ids (`group.ru.keepcoder.Telegram`) are judged without the prefix.
     static func isOwnedIdentifier(_ identifier: String, _ identity: InstalledIdentity) -> Bool {
         let id = strippingGroupPrefix(identifier.lowercased())
-        if id.hasPrefix("com.apple.") { return true }
+        // Apple's own containers, including app-group ones like
+        // `243LU875E5.groups.com.apple.podcasts` (note the plural "groups." prefix).
+        if id.hasPrefix("com.apple.") || id.contains(".com.apple.") { return true }
         return identity.identifiers.contains(id) || identity.vendors.contains(vendor(of: id))
     }
 
