@@ -9,7 +9,7 @@
   <img alt="Platform" src="https://img.shields.io/badge/macOS-14%2B-black?logo=apple">
   <img alt="Swift" src="https://img.shields.io/badge/Swift-5.10%2B-orange?logo=swift">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
-  <em>&nbsp;· Status: v1.3 — signed, notarized, self-updating</em>
+  <em>&nbsp;· Status: v1.4 — signed, notarized, self-updating</em>
 </p>
 
 <p align="center">
@@ -156,6 +156,9 @@ What shipped when is in [`CHANGELOG.md`](CHANGELOG.md); how a release is cut is 
 | 6 | v1.0: sidebar, footer stats, icon, DMG, release |
 | 1.1 | Drive tree sidebar, live refresh, drive overview, task-oriented smart lists, Free up space, notarized DMG |
 | 1.1.x | Homebrew tap, landing page ([foldscale.com](https://foldscale.com/)), demo mode for screenshots |
+| 1.2 | Renamed Radix → Foldscale (name collision); cache and settings carried over |
+| 1.3 | Auto-updates (Sparkle 2), one-command release pipeline, CHANGELOG |
+| 1.4 | App leftovers, Phone backups, Virtual machines, Media libraries, Cloud files, What grew (size history) |
 
 ## Contributing
 
