@@ -6,6 +6,8 @@ releasing. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-08-27
+
 ### Fixed
 - App leftovers no longer lists Apple's own app-group containers (for example the Podcasts
   downloads folder, `…groups.com.apple.podcasts`) as leftovers.
@@ -88,7 +90,8 @@ First release (as Radix, unsigned).
 - Smart lists (Large files, Old and big); sidebar Favorites + Volumes.
 - Remembers the last scan and reloads it instantly.
 
-[Unreleased]: https://github.com/Mikehoncho32/foldscale/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/Mikehoncho32/foldscale/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.4.1
 [1.4.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.4.0
 [1.3.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.3.0
 [1.2.0]: https://github.com/Mikehoncho32/foldscale/releases/tag/v1.2.0
