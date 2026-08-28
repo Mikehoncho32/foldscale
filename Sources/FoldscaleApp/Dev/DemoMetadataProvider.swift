@@ -29,6 +29,7 @@ struct DemoMetadataProvider: BundleInfoProvider {
             name: "Discord", identifier: "com.hnc.Discord", category: "social-networking"),
         "zoom.us.app": BundleInfo(name: "zoom.us", identifier: "us.zoom.xos", category: "business"),
         "Steam.app": BundleInfo(name: "Steam", identifier: "com.valvesoftware.steam", category: "games"),
+        "UTM.app": BundleInfo(name: "UTM", identifier: "com.utmapp.UTM", category: "developer-tools"),
         "Arc.app": BundleInfo(
             name: "Arc", identifier: "company.thebrowser.Browser", category: "productivity"),
         // Teams is gone but Word/Excel share its vendor, so its container is "owned";

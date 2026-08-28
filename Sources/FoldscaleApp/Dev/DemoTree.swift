@@ -124,6 +124,7 @@ enum DemoTree {
             gen.blob("Discord.app", 290 * mb, files: 260, days: 4)
             gen.blob("zoom.us.app", 260 * mb, files: 200, days: 30)
             gen.blob("Steam.app", 210 * mb, files: 150, days: 5)
+            gen.blob("UTM.app", 180 * mb, files: 120, days: 12)
             gen.blob("Utilities", 20 * mb, files: 40, days: 300)
         }
     }
