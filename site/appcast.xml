@@ -8,6 +8,20 @@
     <language>en</language>
     <!-- items:begin -->
     <item>
+      <title>Foldscale 1.4.1</title>
+      <pubDate>Fri, 28 Aug 2026 03:19:21 +0000</pubDate>
+      <sparkle:version>6</sparkle:version>
+      <sparkle:shortVersionString>1.4.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <link>https://github.com/Mikehoncho32/foldscale/releases/tag/v1.4.1</link>
+      <description><![CDATA[<h3 dir="auto">Fixed</h3>
+<ul dir="auto">
+<li>App leftovers no longer lists Apple's own app-group containers (for example the Podcasts<br>
+downloads folder, <code class="notranslate">…groups.com.apple.podcasts</code>) as leftovers.</li>
+</ul>]]></description>
+      <enclosure url="https://github.com/Mikehoncho32/foldscale/releases/download/v1.4.1/Foldscale-1.4.1.dmg" length="3047127" type="application/octet-stream" sparkle:edSignature="mZLo8AxkAl8BTrtUMyC77VJGRsBt11wgsLqIh3C93oWNJ6EcGfUfgsIgq4b+QSeWoZUM0wEmU/PysPO2q2saBQ=="/>
+    </item>
+    <item>
       <title>Foldscale 1.4.0</title>
       <pubDate>Wed, 26 Aug 2026 21:17:42 +0000</pubDate>
       <sparkle:version>5</sparkle:version>

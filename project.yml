@@ -20,8 +20,8 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.4.0"
-    CURRENT_PROJECT_VERSION: "5"
+    MARKETING_VERSION: "1.4.1"
+    CURRENT_PROJECT_VERSION: "6"
     DEVELOPMENT_TEAM: ""
 
 targets:
